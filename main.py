@@ -331,35 +331,26 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
 
 # --- 2. EXECUTION LOGIC ---
 if __name__ == "__main__":
-    # 1. Ensure Ollama is ready
-    if not ensure_ollama_running():
-        print("❌ CRITICAL: Ollama is unreachable. Cannot proceed.")
-        exit(1)
-
     print("🚀 Starting Pipeline...")
     
+    # Ensure Ollama is reachable
     try:
-        # 2. Extract
-        print("🔍 Extracting functions from requests...")
-        functions = extract_functions_from_library(requests)
-        print(f"✅ Extracted {len(functions)} functions.")
+        # Step 1: Extraction
+        target_library = requests
+        functions_to_refactor = extract_functions_from_library(target_library)
+        print(f"✅ Extracted {len(functions_to_refactor)} functions.")
 
-        # 3. Process & Save Initial Dataset
-        process_and_save_dataset(functions, "final_dataset.json")
+        # Step 2: Processing & Self-Healing
+        # We process to save the base dataset first
+        process_and_save_dataset(functions_to_refactor, "final_dataset.json")
         
-        # 4. Run Self-Healing Pipeline
-        if os.path.exists("final_dataset.json"):
-            run_self_healing_pipeline(functions, "final_dataset_validated.json")
-            
-            # 5. Run Analytics & Reporting
-            if os.path.exists("final_dataset_validated.json"):
-                run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
-            else:
-                print("⚠️ Validation dataset not found. Skipping analytics.")
-        else:
-            print("❌ Processing failed: final_dataset.json was never created.")
-
+        # Then run the healing pipeline
+        run_self_healing_pipeline(functions_to_refactor, "final_dataset_validated.json")
+        
+        # Step 3: Analytics
+        run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
+        
         print("🏁 All processes finished successfully!")
         
     except Exception as e:
-        print(f"❌ CRITICAL ERROR during pipeline execution: {e}")
+        print(f"❌ CRITICAL ERROR: {e}")
