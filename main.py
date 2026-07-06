@@ -335,17 +335,28 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
 if __name__ == "__main__":
     print("🚀 Starting Pipeline...")
     
-    # 1. Extraction
-    functions = extract_functions_from_library(requests)
-    
-    # 2. Process (This generates the file)
-    process_and_save_dataset(functions, "final_dataset.json")
-    
-    # 3. Heal (This generates the second file)
-    run_self_healing_pipeline(functions, "final_dataset_validated.json")
-    
-    # 4. Analytics (Only run this AFTER the files exist)
-    # Move your plotting and reading logic into a function called here
-    run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
-    
-    print("🏁 All processes finished successfully!")
+    try:
+        # 1. Extraction
+        target_library = requests
+        functions = extract_functions_from_library(target_library)
+        print(f"✅ Extracted {len(functions)} functions.")
+
+        # 2. Process
+        process_and_save_dataset(functions, "final_dataset.json")
+        
+        # 3. Heal (Only runs if dataset was saved)
+        if os.path.exists("final_dataset.json"):
+            run_self_healing_pipeline(functions, "final_dataset_validated.json")
+        else:
+            raise FileNotFoundError("final_dataset.json was not created.")
+        
+        # 4. Analytics
+        if os.path.exists("final_dataset.json") and os.path.exists("final_dataset_validated.json"):
+            run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
+        else:
+            print("❌ Analytics skipped: Required files missing.")
+            
+        print("🏁 Pipeline finished.")
+        
+    except Exception as e:
+        print(f"❌ CRITICAL ERROR: {e}")
