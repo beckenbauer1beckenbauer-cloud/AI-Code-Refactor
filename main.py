@@ -366,20 +366,19 @@ if __name__ == "__main__":
     # Now continue with your existing logic...
     print("🚀 Starting Pipeline...")
     
-    try:
-        # Step 1: Extraction
-        target_library = requests
-        functions = extract_functions_from_library(target_library)
-        print(f"✅ Extracted {len(functions)} functions.")
+   # 1. Extraction
+    functions_to_refactor = extract_functions_from_library(requests)
+    
+    # 2. Process and Save
+    process_and_save_dataset(functions_to_refactor, "final_dataset.json")
 
-        # Step 2: Processing & Self-Healing
-        process_and_save_dataset(functions, "final_dataset.json")
-        run_self_healing_pipeline(functions, "final_dataset_validated.json")
-        
-        # Step 3: Analytics
+    # 3. Validation Pipeline
+    run_self_healing_pipeline(functions_to_refactor, "final_dataset_validated.json")
+
+    # 4. Analytics (only after ensuring files exist)
+    if os.path.exists("final_dataset.json") and os.path.exists("final_dataset_validated.json"):
         run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
-        
-        print("🏁 All processes finished successfully!")
-        
-    except Exception as e:
-        print(f"❌ CRITICAL ERROR: {e}")
+    else:
+        print("❌ Error: Dataset files were not created successfully.")
+
+    print("🏁 Process Complete!")
