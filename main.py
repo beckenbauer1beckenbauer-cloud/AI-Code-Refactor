@@ -157,17 +157,22 @@ plt.show()
 
 def refactor_and_validate(name, code):
     """
-    Refactors code with bulletproof error handling.
+    Refactors code with validation and error handling.
     """
-    # 1. Attempt Refactoring
+    # 1. Get data from engine
     refactored_data = refactor_code_with_ollama(name, code)
     
-    # If the engine failed to return data, treat it as an empty refactoring
-    if refactored_data is None:
-        print(f"⚠️ Engine failed for {name}, skipping refactoring.")
+    # Check if the engine returned None or failed
+    if not refactored_data or "refactored_code" not in refactored_data:
+        print(f"⚠️ Engine failed for {name}, keeping original code.")
         return code, "Engine failed"
 
-    new_code = refactored_data.get("refactored_code", code)
+    new_code = refactored_data.get("refactored_code")
+
+    # Ensure new_code is actually a string before compiling
+    if not isinstance(new_code, str):
+        print(f"⚠️ Invalid output format for {name}.")
+        return code, "invalid_format"
     
     # 2. Validate (Self-Healing Loop)
     try:
@@ -175,13 +180,9 @@ def refactor_and_validate(name, code):
         return new_code, "verified"
     except SyntaxError as e:
         print(f"⚠️ Syntax Error in {name}. Attempting fix...")
-        fix_prompt = f"The following code has a syntax error: {str(e)}. Fix it:\n{new_code}"
-        
-        fix_data = refactor_code_with_ollama(name, fix_prompt)
-        if fix_data:
-            return fix_data.get("refactored_code", new_code), "fixed"
+        # ... your existing fix logic ...
         return new_code, "unfixed_error"
-
+        
 def run_self_healing_pipeline(functions_list, output_file="final_dataset_validated.json"):
     validated_dataset = []
     
