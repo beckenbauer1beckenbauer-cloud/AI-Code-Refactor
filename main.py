@@ -4,7 +4,10 @@ import json
 import time
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
+print(f"DEBUG: Script is running. Current working directory: {os.getcwd()}")
+print(f"DEBUG: Name is: {__name__}")
 # --- FUNCTIONS ---
 
 def extract_functions_from_library(library):
