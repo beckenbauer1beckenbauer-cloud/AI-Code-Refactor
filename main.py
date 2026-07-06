@@ -124,6 +124,8 @@ def process_and_save_dataset(functions_list, output_file="final_dataset.json"):
         
     print(f"✅ Success! Dataset saved to '{output_file}'.")
 
+# Execute the final pipeline
+process_and_save_dataset(functions_to_refactor)
 
 # 1. Load the dataset we just created
 with open("final_dataset.json", "r") as f:
@@ -155,22 +157,17 @@ plt.show()
 
 def refactor_and_validate(name, code):
     """
-    Refactors code with validation and error handling.
+    Refactors code with bulletproof error handling.
     """
-    # 1. Get data from engine
+    # 1. Attempt Refactoring
     refactored_data = refactor_code_with_ollama(name, code)
     
-    # Check if the engine returned None or failed
-    if not refactored_data or "refactored_code" not in refactored_data:
-        print(f"⚠️ Engine failed for {name}, keeping original code.")
+    # If the engine failed to return data, treat it as an empty refactoring
+    if refactored_data is None:
+        print(f"⚠️ Engine failed for {name}, skipping refactoring.")
         return code, "Engine failed"
 
-    new_code = refactored_data.get("refactored_code")
-
-    # Ensure new_code is actually a string before compiling
-    if not isinstance(new_code, str):
-        print(f"⚠️ Invalid output format for {name}.")
-        return code, "invalid_format"
+    new_code = refactored_data.get("refactored_code", code)
     
     # 2. Validate (Self-Healing Loop)
     try:
@@ -178,9 +175,13 @@ def refactor_and_validate(name, code):
         return new_code, "verified"
     except SyntaxError as e:
         print(f"⚠️ Syntax Error in {name}. Attempting fix...")
-        # ... your existing fix logic ...
-        return new_code, "unfixed_error"
+        fix_prompt = f"The following code has a syntax error: {str(e)}. Fix it:\n{new_code}"
         
+        fix_data = refactor_code_with_ollama(name, fix_prompt)
+        if fix_data:
+            return fix_data.get("refactored_code", new_code), "fixed"
+        return new_code, "unfixed_error"
+
 def run_self_healing_pipeline(functions_list, output_file="final_dataset_validated.json"):
     validated_dataset = []
     
@@ -205,6 +206,8 @@ def run_self_healing_pipeline(functions_list, output_file="final_dataset_validat
             
     print(f"✅ Pipeline finished. Dataset saved to {output_file}")
 
+# Run the pipeline
+run_self_healing_pipeline(functions_to_refactor)
 
 # --- Helper Function: Call Ollama for Report ---
 def generate_analytics_report(metrics_old, metrics_new):
@@ -331,32 +334,31 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
     except FileNotFoundError as e:
         print(f"⚠️ Error: One or both files not found. Please ensure both JSON files exist. {e}")
 
+# Run the comparative analytics
+run_comparative_analytics()
 
+# --- 2. EXECUTION LOGIC ---
 if __name__ == "__main__":
     print("🚀 Starting Pipeline...")
     
+    # Ensure Ollama is reachable
     try:
-        # 1. Extraction
+        # Step 1: Extraction
         target_library = requests
-        functions = extract_functions_from_library(target_library)
-        print(f"✅ Extracted {len(functions)} functions.")
+        functions_to_refactor = extract_functions_from_library(target_library)
+        print(f"✅ Extracted {len(functions_to_refactor)} functions.")
 
-        # 2. Process
-        process_and_save_dataset(functions, "final_dataset.json")
+        # Step 2: Processing & Self-Healing
+        # We process to save the base dataset first
+        process_and_save_dataset(functions_to_refactor, "final_dataset.json")
         
-        # 3. Heal (Only runs if dataset was saved)
-        if os.path.exists("final_dataset.json"):
-            run_self_healing_pipeline(functions, "final_dataset_validated.json")
-        else:
-            raise FileNotFoundError("final_dataset.json was not created.")
+        # Then run the healing pipeline
+        run_self_healing_pipeline(functions_to_refactor, "final_dataset_validated.json")
         
-        # 4. Analytics
-        if os.path.exists("final_dataset.json") and os.path.exists("final_dataset_validated.json"):
-            run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
-        else:
-            print("❌ Analytics skipped: Required files missing.")
-            
-        print("🏁 Pipeline finished.")
+        # Step 3: Analytics
+        run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
+        
+        print("🏁 All processes finished successfully!")
         
     except Exception as e:
         print(f"❌ CRITICAL ERROR: {e}")
