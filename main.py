@@ -5,6 +5,33 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
+def self_healing_refactor(name, code, max_retries=2):
+    """
+    Attempts to refactor code; if it fails to compile, sends the error 
+    back to the LLM to fix it.
+    """
+    current_code = code
+    for attempt in range(max_retries + 1):
+        # 1. Ask Ollama for refactored code
+        result = refactor_code_with_ollama(name, current_code)
+        
+        if not result or "refactored_code" not in result:
+            continue # Try again
+            
+        new_code = result["refactored_code"]
+        
+        # 2. Validation Gate
+        try:
+            compile(new_code, '<string>', 'exec')
+            return new_code, "verified"
+        except SyntaxError as e:
+            print(f"⚠️ Syntax Error in {name} (Attempt {attempt+1}): {e}")
+            # Inject the error back into the next prompt
+            current_code = f"{new_code}\n# ERROR: {e}" 
+            continue
+            
+    return current_code, "failed_after_retries"
+
 def extract_functions_from_library(library):
     """
     Extracts all functions from a given library and returns a list 
@@ -331,6 +358,22 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
 
 # --- 2. EXECUTION LOGIC ---
 if __name__ == "__main__":
+    if not ensure_ollama_running(): exit(1)
+    
+    functions = extract_functions_from_library(requests)
+    results = []
+    
+    for name, code in functions:
+        print(f"⚙️ Healing: {name}...")
+        # Use the healing loop
+        final_code, status = self_healing_refactor(name, code)
+        
+        # Save progress immediately
+        results.append({"function": name, "code": final_code, "status": status})
+        with open("progress.json", "w") as f:
+            json.dump(results, f, indent=4)
+            
+    print("🏁 Pipeline finished safely.")
     print("🚀 Starting Pipeline...")
     
     # 1. Extraction
