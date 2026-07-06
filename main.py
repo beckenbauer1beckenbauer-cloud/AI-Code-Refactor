@@ -124,6 +124,9 @@ def process_and_save_dataset(functions_list, output_file="final_dataset.json"):
         
     print(f"✅ Success! Dataset saved to '{output_file}'.")
 
+# Execute the final pipeline
+process_and_save_dataset(functions_to_refactor)
+
 # 1. Load the dataset we just created
 with open("final_dataset.json", "r") as f:
     dataset = json.load(f)
@@ -204,6 +207,8 @@ def run_self_healing_pipeline(functions_list, output_file="final_dataset_validat
             
     print(f"✅ Pipeline finished. Dataset saved to {output_file}")
 
+# Run the pipeline
+run_self_healing_pipeline(functions_to_refactor)
 
 # --- Helper Function: Call Ollama for Report ---
 def generate_analytics_report(metrics_old, metrics_new):
@@ -330,6 +335,8 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
     except FileNotFoundError as e:
         print(f"⚠️ Error: One or both files not found. Please ensure both JSON files exist. {e}")
 
+# Run the comparative analytics
+run_comparative_analytics()
 
 # --- 2. EXECUTION LOGIC ---
 if __name__ == "__main__":
@@ -337,21 +344,22 @@ if __name__ == "__main__":
     
     # Ensure Ollama is reachable
     try:
-        # 1. Extraction
-    functions = extract_functions_from_library(requests)
-    
-    # 2. Process
-    process_and_save_dataset(functions, "final_dataset.json")
-    
-    # 3. Heal & Validate
-    run_self_healing_pipeline(functions, "final_dataset_validated.json")
-    
-    # 4. Analytics
-    # Add a small delay to ensure file system writes are complete
-    time.sleep(2)
-    run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
-    
-    print("🏁 Pipeline finished.")
+        # Step 1: Extraction
+        target_library = requests
+        functions_to_refactor = extract_functions_from_library(target_library)
+        print(f"✅ Extracted {len(functions_to_refactor)} functions.")
+
+        # Step 2: Processing & Self-Healing
+        # We process to save the base dataset first
+        process_and_save_dataset(functions_to_refactor, "final_dataset.json")
+        
+        # Then run the healing pipeline
+        run_self_healing_pipeline(functions_to_refactor, "final_dataset_validated.json")
+        
+        # Step 3: Analytics
+        run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
+        
+        print("🏁 All processes finished successfully!")
         
     except Exception as e:
         print(f"❌ CRITICAL ERROR: {e}")
