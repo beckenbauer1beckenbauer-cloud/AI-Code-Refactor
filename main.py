@@ -337,3 +337,18 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
 # Run the comparative analytics
 run_comparative_analytics()
 
+# --- 2. THE EXECUTION BLOCK (The ONLY part that runs) ---
+if __name__ == "__main__":
+    print("🚀 Starting Pipeline...")
+    
+    # Extraction
+    target_library = requests
+    funcs = extract_functions_from_library(target_library)
+    
+    # Self-Healing Pipeline
+    run_self_healing_pipeline(funcs)
+    
+    # Run Analytics (Only after files are saved)
+    run_comparative_analytics()
+    
+    print("🏁 Process Finished!")
