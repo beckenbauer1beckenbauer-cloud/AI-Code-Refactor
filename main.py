@@ -107,3 +107,25 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
     metrics_old, metrics_new = calculate_metrics(old_data), calculate_metrics(new_data)
     # Visualization code would go here as per your original Code 4/6
     print("Analytics complete.")
+# --- 3. Execution (The Recipe) ---
+
+if __name__ == "__main__":
+    import requests
+    # Assuming you are targeting the 'requests' library as in your original code
+    target_library = requests 
+    
+    print("🚀 Starting the Pipeline...")
+    
+    # Step 1: Extract
+    functions_to_refactor = extract_functions_from_library(target_library)
+    print(f"✅ Extracted {len(functions_to_refactor)} functions.")
+    
+    # Step 2: Run the Self-Healing Pipeline
+    # This will create 'final_dataset_validated.json'
+    run_self_healing_pipeline(functions_to_refactor)
+    
+    # Step 3: Run Analytics
+    # This will generate the report and plot
+    run_comparative_analytics()
+    
+    print("🏁 All processes finished successfully!")    
