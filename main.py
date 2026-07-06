@@ -357,28 +357,35 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
     except FileNotFoundError as e:
         print(f"⚠️ Error: One or both files not found. Please ensure both JSON files exist. {e}")
 
-
 if __name__ == "__main__":
+    # 1. Ensure Ollama is ready before doing anything
     if not ensure_ollama_running():
-        print("❌ Pipeline aborted: Ollama could not be started.")
-        exit(1) # Stop the script
-    
-    # Now continue with your existing logic...
+        print("❌ CRITICAL: Ollama is unreachable. Cannot proceed.")
+        exit(1)
+
     print("🚀 Starting Pipeline...")
     
-   # 1. Extraction
-    functions_to_refactor = extract_functions_from_library(requests)
-    
-    # 2. Process and Save
-    process_and_save_dataset(functions_to_refactor, "final_dataset.json")
+    try:
+        # 2. Extract
+        functions = extract_functions_from_library(requests)
+        
+        # 3. Process (Save dataset)
+        process_and_save_dataset(functions, "final_dataset.json")
+        
+        # 4. Only proceed to reading/analytics if the file actually exists
+        if os.path.exists("final_dataset.json"):
+            # 5. Run Healing
+            run_self_healing_pipeline(functions, "final_dataset_validated.json")
+            
+            # 6. Run Analytics
+            if os.path.exists("final_dataset_validated.json"):
+                run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
+            else:
+                print("⚠️ Validation dataset was not created. Skipping analytics.")
+        else:
+            print("❌ Processing failed: final_dataset.json was never created.")
 
-    # 3. Validation Pipeline
-    run_self_healing_pipeline(functions_to_refactor, "final_dataset_validated.json")
-
-    # 4. Analytics (only after ensuring files exist)
-    if os.path.exists("final_dataset.json") and os.path.exists("final_dataset_validated.json"):
-        run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
-    else:
-        print("❌ Error: Dataset files were not created successfully.")
-
-    print("🏁 Process Complete!")
+        print("🏁 All processes finished successfully!")
+        
+    except Exception as e:
+        print(f"❌ CRITICAL ERROR during pipeline execution: {e}")
