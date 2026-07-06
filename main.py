@@ -4,7 +4,6 @@ import json
 import time
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 
 def extract_functions_from_library(library):
     """
@@ -45,12 +44,19 @@ for name, _ in functions_to_refactor:
 # Now, 'functions_to_refactor' contains the actual data ready for the next step.
 
 def refactor_code_with_ollama(name, code):
+    """
+    Sends the raw function code to the local Ollama instance and 
+    returns the refactored code and explanation in JSON format.
+    """
     url = "http://localhost:11434/api/generate"
-    # Added strict constraints to minimize hallucinations
+    
+    # We define the role and task for the AI engine
     system_prompt = (
-        "You are a strict JSON generator. Refactor Python code. "
-        "Return ONLY a raw JSON object with keys: 'refactored_code' and 'explanation'. "
-        "Do not include any Markdown, backticks, or conversational filler."
+        "You are an expert Python engineer. Refactor the provided function to: "
+        "1. Add comprehensive type hints. "
+        "2. Add Google-style docstrings (Parameters, Returns, Raises). "
+        "3. Improve code structure if needed. "
+        "Return ONLY a raw JSON object with two keys: 'refactored_code' and 'explanation'."
     )
     
     payload = {
@@ -63,22 +69,27 @@ def refactor_code_with_ollama(name, code):
     try:
         response = requests.post(url, json=payload)
         if response.status_code == 200:
-            raw_text = response.json()['response']
-            # Sanitize: Remove markdown code blocks if Ollama included them
-            clean_text = raw_text.replace("```json", "").replace("```", "").strip()
-            data = json.loads(clean_text)
-            
-            # Ensure keys exist
-            if 'refactored_code' not in data or 'explanation' not in data:
-                print(f"⚠️ Missing keys in AI response for {name}. Recovering...")
-                data['refactored_code'] = data.get('refactored_code', code)
-                data['explanation'] = data.get('explanation', "No explanation provided.")
-            
-            return data
+            data = response.json()
+            # The AI response is in the 'response' field
+            return json.loads(data['response'])
+        else:
+            print(f"Error: Server returned {response.status_code}")
+            return None
     except Exception as e:
-        print(f"❌ Critical Engine Failure for {name}: {e}")
+        print(f"Engine failure for {name}: {e}")
+        return None
+
+# Test the engine with the first function in our list
+if 'functions_to_refactor' in globals() and functions_to_refactor:
+    sample_name, sample_code = functions_to_refactor[0]
+    print(f"🚀 Running engine test on: {sample_name}...")
+    result = refactor_code_with_ollama(sample_name, sample_code)
     
-    return {"refactored_code": code, "explanation": "Engine failed, keeping original."}
+    if result:
+        print("✅ Engine Test Successful!")
+        print(f"Explanation: {result['explanation']}")
+    else:
+        print("❌ Engine Test Failed.")
 
 def process_and_save_dataset(functions_list, output_file="final_dataset.json"):
     """
@@ -113,6 +124,9 @@ def process_and_save_dataset(functions_list, output_file="final_dataset.json"):
         
     print(f"✅ Success! Dataset saved to '{output_file}'.")
 
+# Execute the final pipeline
+process_and_save_dataset(functions_to_refactor)
+
 # 1. Load the dataset we just created
 with open("final_dataset.json", "r") as f:
     dataset = json.load(f)
@@ -139,7 +153,6 @@ plt.tight_layout()
 
 # 4. Save and Show
 plt.savefig("refactoring_analysis.png")
-print("✅ Plot saved as refactoring_analysis.png")
 plt.show()
 
 def refactor_and_validate(name, code):
@@ -171,26 +184,33 @@ def refactor_and_validate(name, code):
         return new_code, "unfixed_error"
         
 def run_self_healing_pipeline(functions_list, output_file="final_dataset_validated.json"):
-    print(f"DEBUG: Saving to {os.path.abspath(output_file)}")
     validated_dataset = []
+    
     for name, code in functions_list:
         print(f"⚙️ Processing: {name}...")
         
-        # Logic: Try once, and if it fails to produce 'refactored_code', try one more time
-        result = refactor_code_with_ollama(name, code)
+        # Use our robust refactor/validate function
+        final_code, status = refactor_and_validate(name, code)
         
-        # If the result is the original code (fallback), try one more time
-        if result['explanation'] == "Engine failed, keeping original.":
-            print(f"🔄 Retrying {name} once...")
-            result = refactor_code_with_ollama(name, code)
-
         validated_dataset.append({
             "function": name,
-            "refactored_code": result['refactored_code'],
-            "explanation": result['explanation']
+            "refactored_code": final_code,
+            "status": status
         })
-        # ... rest of your save logic ...
+        
+        # Incremental save
+        with open(output_file, "w") as f:
+            json.dump(validated_dataset, f, indent=4)
+        
+        # Small delay to prevent server overload
+        time.sleep(2) 
+            
+    print(f"✅ Pipeline finished. Dataset saved to {output_file}")
 
+# Run the pipeline
+run_self_healing_pipeline(functions_to_refactor)
+
+# --- Helper Function: Call Ollama for Report ---
 def generate_analytics_report(metrics_old, metrics_new):
     """
     Sends metrics to Ollama to generate a comparative professional report.
@@ -314,6 +334,9 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
 
     except FileNotFoundError as e:
         print(f"⚠️ Error: One or both files not found. Please ensure both JSON files exist. {e}")
+
+# Run the comparative analytics
+run_comparative_analytics()
 
 # --- 2. EXECUTION LOGIC ---
 if __name__ == "__main__":
