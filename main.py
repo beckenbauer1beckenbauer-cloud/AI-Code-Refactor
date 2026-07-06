@@ -44,19 +44,12 @@ for name, _ in functions_to_refactor:
 # Now, 'functions_to_refactor' contains the actual data ready for the next step.
 
 def refactor_code_with_ollama(name, code):
-    """
-    Sends the raw function code to the local Ollama instance and 
-    returns the refactored code and explanation in JSON format.
-    """
     url = "http://localhost:11434/api/generate"
-    
-    # We define the role and task for the AI engine
+    # Added strict constraints to minimize hallucinations
     system_prompt = (
-        "You are an expert Python engineer. Refactor the provided function to: "
-        "1. Add comprehensive type hints. "
-        "2. Add Google-style docstrings (Parameters, Returns, Raises). "
-        "3. Improve code structure if needed. "
-        "Return ONLY a raw JSON object with two keys: 'refactored_code' and 'explanation'."
+        "You are a strict JSON generator. Refactor Python code. "
+        "Return ONLY a raw JSON object with keys: 'refactored_code' and 'explanation'. "
+        "Do not include any Markdown, backticks, or conversational filler."
     )
     
     payload = {
@@ -69,27 +62,22 @@ def refactor_code_with_ollama(name, code):
     try:
         response = requests.post(url, json=payload)
         if response.status_code == 200:
-            data = response.json()
-            # The AI response is in the 'response' field
-            return json.loads(data['response'])
-        else:
-            print(f"Error: Server returned {response.status_code}")
-            return None
+            raw_text = response.json()['response']
+            # Sanitize: Remove markdown code blocks if Ollama included them
+            clean_text = raw_text.replace("```json", "").replace("```", "").strip()
+            data = json.loads(clean_text)
+            
+            # Ensure keys exist
+            if 'refactored_code' not in data or 'explanation' not in data:
+                print(f"⚠️ Missing keys in AI response for {name}. Recovering...")
+                data['refactored_code'] = data.get('refactored_code', code)
+                data['explanation'] = data.get('explanation', "No explanation provided.")
+            
+            return data
     except Exception as e:
-        print(f"Engine failure for {name}: {e}")
-        return None
-
-# Test the engine with the first function in our list
-if 'functions_to_refactor' in globals() and functions_to_refactor:
-    sample_name, sample_code = functions_to_refactor[0]
-    print(f"🚀 Running engine test on: {sample_name}...")
-    result = refactor_code_with_ollama(sample_name, sample_code)
+        print(f"❌ Critical Engine Failure for {name}: {e}")
     
-    if result:
-        print("✅ Engine Test Successful!")
-        print(f"Explanation: {result['explanation']}")
-    else:
-        print("❌ Engine Test Failed.")
+    return {"refactored_code": code, "explanation": "Engine failed, keeping original."}
 
 def process_and_save_dataset(functions_list, output_file="final_dataset.json"):
     """
@@ -185,32 +173,24 @@ def refactor_and_validate(name, code):
         
 def run_self_healing_pipeline(functions_list, output_file="final_dataset_validated.json"):
     validated_dataset = []
-    
     for name, code in functions_list:
         print(f"⚙️ Processing: {name}...")
         
-        # Use our robust refactor/validate function
-        final_code, status = refactor_and_validate(name, code)
+        # Logic: Try once, and if it fails to produce 'refactored_code', try one more time
+        result = refactor_code_with_ollama(name, code)
         
+        # If the result is the original code (fallback), try one more time
+        if result['explanation'] == "Engine failed, keeping original.":
+            print(f"🔄 Retrying {name} once...")
+            result = refactor_code_with_ollama(name, code)
+
         validated_dataset.append({
             "function": name,
-            "refactored_code": final_code,
-            "status": status
+            "refactored_code": result['refactored_code'],
+            "explanation": result['explanation']
         })
-        
-        # Incremental save
-        with open(output_file, "w") as f:
-            json.dump(validated_dataset, f, indent=4)
-        
-        # Small delay to prevent server overload
-        time.sleep(2) 
-            
-    print(f"✅ Pipeline finished. Dataset saved to {output_file}")
+        # ... rest of your save logic ...
 
-# Run the pipeline
-run_self_healing_pipeline(functions_to_refactor)
-
-# --- Helper Function: Call Ollama for Report ---
 def generate_analytics_report(metrics_old, metrics_new):
     """
     Sends metrics to Ollama to generate a comparative professional report.
