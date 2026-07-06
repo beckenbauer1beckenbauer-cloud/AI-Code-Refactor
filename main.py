@@ -124,9 +124,6 @@ def process_and_save_dataset(functions_list, output_file="final_dataset.json"):
         
     print(f"✅ Success! Dataset saved to '{output_file}'.")
 
-# Execute the final pipeline
-process_and_save_dataset(functions_to_refactor)
-
 # 1. Load the dataset we just created
 with open("final_dataset.json", "r") as f:
     dataset = json.load(f)
@@ -207,8 +204,6 @@ def run_self_healing_pipeline(functions_list, output_file="final_dataset_validat
             
     print(f"✅ Pipeline finished. Dataset saved to {output_file}")
 
-# Run the pipeline
-run_self_healing_pipeline(functions_to_refactor)
 
 # --- Helper Function: Call Ollama for Report ---
 def generate_analytics_report(metrics_old, metrics_new):
@@ -335,8 +330,6 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
     except FileNotFoundError as e:
         print(f"⚠️ Error: One or both files not found. Please ensure both JSON files exist. {e}")
 
-# Run the comparative analytics
-run_comparative_analytics()
 
 # --- 2. EXECUTION LOGIC ---
 if __name__ == "__main__":
