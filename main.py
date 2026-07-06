@@ -4,6 +4,32 @@ import json
 import time
 import matplotlib.pyplot as plt
 import numpy as np
+import subprocess
+import os
+
+def ensure_ollama_running():
+    """Checks if Ollama is reachable; if not, attempts to restart it."""
+    try:
+        # Check if the port is responding
+        requests.get("http://localhost:11434", timeout=2)
+        print("✅ Ollama is already running.")
+        return True
+    except requests.exceptions.ConnectionError:
+        print("⚠️ Ollama not detected. Attempting to start...")
+        # Start server in background
+        subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        # Wait for it to wake up
+        for i in range(15):
+            time.sleep(2)
+            try:
+                requests.get("http://localhost:11434", timeout=2)
+                print("✅ Ollama awakened successfully!")
+                return True
+            except:
+                continue
+        print("❌ Could not awaken Ollama.")
+        return False
 
 def extract_functions_from_library(library):
     """
@@ -333,6 +359,11 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
 
 
 if __name__ == "__main__":
+    if not ensure_ollama_running():
+        print("❌ Pipeline aborted: Ollama could not be started.")
+        exit(1) # Stop the script
+    
+    # Now continue with your existing logic...
     print("🚀 Starting Pipeline...")
     
     try:
