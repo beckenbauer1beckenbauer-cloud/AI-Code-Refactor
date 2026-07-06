@@ -337,19 +337,28 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
 # Run the comparative analytics
 run_comparative_analytics()
 
-# --- EXECUTION ---
+# --- 2. EXECUTION LOGIC ---
 if __name__ == "__main__":
-    print("🚀 Starting the Cloud Pipeline...")
+    print("🚀 Starting Pipeline...")
     
-    # 1. Extract
-    functions_to_refactor = extract_functions_from_library(requests)
-    print(f"✅ Found {len(functions_to_refactor)} functions.")
-    
-    # 2. Pipeline
-    process_and_save_dataset(functions_to_refactor)
-    run_self_healing_pipeline(functions_to_refactor)
-    
-    # 3. Analytics
-    run_comparative_analytics()
-    
-    print("🏁 Process Complete!")
+    # Ensure Ollama is reachable
+    try:
+        # Step 1: Extraction
+        target_library = requests
+        functions_to_refactor = extract_functions_from_library(target_library)
+        print(f"✅ Extracted {len(functions_to_refactor)} functions.")
+
+        # Step 2: Processing & Self-Healing
+        # We process to save the base dataset first
+        process_and_save_dataset(functions_to_refactor, "final_dataset.json")
+        
+        # Then run the healing pipeline
+        run_self_healing_pipeline(functions_to_refactor, "final_dataset_validated.json")
+        
+        # Step 3: Analytics
+        run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
+        
+        print("🏁 All processes finished successfully!")
+        
+    except Exception as e:
+        print(f"❌ CRITICAL ERROR: {e}")
