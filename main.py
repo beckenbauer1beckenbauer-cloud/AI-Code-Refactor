@@ -337,18 +337,19 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
 # Run the comparative analytics
 run_comparative_analytics()
 
-# --- THE EXECUTION RECIPE ---
+# --- EXECUTION ---
 if __name__ == "__main__":
     print("🚀 Starting the Cloud Pipeline...")
     
-    # 1. Extraction
-    funcs = extract_functions_from_library(requests)
-    print(f"✅ Extracted {len(funcs)} functions.")
+    # 1. Extract
+    functions_to_refactor = extract_functions_from_library(requests)
+    print(f"✅ Found {len(functions_to_refactor)} functions.")
     
     # 2. Pipeline
-    run_self_healing_pipeline(funcs)
+    process_and_save_dataset(functions_to_refactor)
+    run_self_healing_pipeline(functions_to_refactor)
     
     # 3. Analytics
     run_comparative_analytics()
     
-    print("🏁 All processes finished successfully!")
+    print("🏁 Process Complete!")
