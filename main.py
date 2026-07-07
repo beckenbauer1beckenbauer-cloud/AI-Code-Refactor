@@ -1,3 +1,4 @@
+import os
 import requests
 import logging
 from src.extractor import extract_functions_from_library
@@ -8,6 +9,8 @@ from src.analytics import run_analysis
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 def main():
+    # Ensure the data directory exists
+    os.makedirs("data", exist_ok=True)
     # 1. Define your target
     import requests as target_library
     
