@@ -16,7 +16,7 @@ def main():
     
     # 2. Extract
     logging.info("Step 1: Extracting functions...")
-    functions = extract_functions_from_library(target_library)
+    extract_functions_from_library(target_library)
     
     # 3. Process
     logging.info("Step 2: Processing and self-healing...")
@@ -25,7 +25,7 @@ def main():
     
     # 4. Analyze
     logging.info("Step 3: Generating analytics...")
-    report = run_analysis("data/final_dataset.json", "data/final_dataset.json")
+    run_analysis("data/final_dataset.json", "data/final_dataset.json")
     
     print("\n" + "="*40)
     print("🐍 FINAL PROJECT REPORT 🐍")
