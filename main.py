@@ -22,12 +22,12 @@ def main():
     logging.info("Step 2: Processing and self-healing...")
     # Note: We save to the 'data/' folder we created earlier
     functions = process_dataset(functions, output_file="data/final_dataset.json")
-    functions
+   
     
     # 4. Analyze
     logging.info("Step 3: Generating analytics...")
     report = run_analysis("data/final_dataset.json", "data/final_dataset.json")
-    report
+   
     
     print("\n" + "="*40)
     print("🐍 FINAL PROJECT REPORT 🐍")
