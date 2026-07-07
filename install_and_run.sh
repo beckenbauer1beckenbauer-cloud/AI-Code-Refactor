@@ -1,29 +1,28 @@
 #!/bin/bash
 
-# 0. Install zstd (Required for Ollama extraction)
-echo "Installing zstd..."
-apt-get update && apt-get install -y zstd
+# 1. Update and install necessary tools
+echo "Installing dependencies..."
+apt-get update && apt-get install -y zstd pciutils
 
-# 1. Install Ollama
+# 2. Install Ollama
 echo "Installing Ollama..."
 curl -fsSL https://ollama.com/install.sh | sh
 
-# 2. Start Ollama in the background
-echo "Starting Ollama..."
-ollama serve &
-sleep 10 # Added a longer sleep to ensure server is fully ready
+# 3. Start Ollama in the background properly
+echo "Starting Ollama server..."
+ollama serve > ollama.log 2>&1 &
+sleep 15  # Wait longer to ensure the server is ready
 
-# 3. Pull the required model
+# 4. Pull the model
 echo "Pulling Llama 3.2..."
-ollama pull llama3.2
+ollama pull llama3.2:3b
 
-# 4. Ensure data directory exists
+# 5. Prepare data directory
 mkdir -p data
 
-# 5. Install requirements
-echo "Installing Python dependencies..."
+# 6. Install Python dependencies
 pip install -r requirements.txt
 
-# 6. Run the project
+# 7. Run the project
 echo "Starting the Auto-Refactor Tool..."
 python main.py
