@@ -32,5 +32,27 @@ def refactor_and_validate(name, code):
         
         if isinstance(fix_data, dict) and isinstance(fix_data.get("refactored_code"), str):
             return fix_data.get("refactored_code"), "fixed"
+
+        def process_dataset(functions_list, output_file):
+    """Processes a list of functions and saves them to a file."""
+    validated_dataset = []
+    
+    for name, code in functions_list:
+        logger.info(f"Processing: {name}...")
+        final_code, status = refactor_and_validate(name, code)
+        
+        validated_dataset.append({
+            "function": name,
+            "refactored_code": final_code,
+            "status": status
+        })
+        
+        # Incremental save
+        with open(output_file, "w") as f:
+            json.dump(validated_dataset, f, indent=4)
+        
+        time.sleep(2) # Prevent server overload
+            
+    return validated_dataset
         
         return new_code, "unfixed_error"
