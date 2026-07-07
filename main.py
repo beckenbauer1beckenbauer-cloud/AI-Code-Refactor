@@ -5,33 +5,6 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
-def self_healing_refactor(name, code, max_retries=2):
-    """
-    Attempts to refactor code; if it fails to compile, sends the error 
-    back to the LLM to fix it.
-    """
-    current_code = code
-    for attempt in range(max_retries + 1):
-        # 1. Ask Ollama for refactored code
-        result = refactor_code_with_ollama(name, current_code)
-        
-        if not result or "refactored_code" not in result:
-            continue # Try again
-            
-        new_code = result["refactored_code"]
-        
-        # 2. Validation Gate
-        try:
-            compile(new_code, '<string>', 'exec')
-            return new_code, "verified"
-        except SyntaxError as e:
-            print(f"⚠️ Syntax Error in {name} (Attempt {attempt+1}): {e}")
-            # Inject the error back into the next prompt
-            current_code = f"{new_code}\n# ERROR: {e}" 
-            continue
-            
-    return current_code, "failed_after_retries"
-
 def extract_functions_from_library(library):
     """
     Extracts all functions from a given library and returns a list 
@@ -151,6 +124,8 @@ def process_and_save_dataset(functions_list, output_file="final_dataset.json"):
         
     print(f"✅ Success! Dataset saved to '{output_file}'.")
 
+# Execute the final pipeline
+process_and_save_dataset(functions_to_refactor)
 
 # 1. Load the dataset we just created
 with open("final_dataset.json", "r") as f:
@@ -178,26 +153,21 @@ plt.tight_layout()
 
 # 4. Save and Show
 plt.savefig("refactoring_analysis.png")
-
+plt.show()
 
 def refactor_and_validate(name, code):
     """
-    Refactors code with validation and error handling.
+    Refactors code with bulletproof error handling.
     """
-    # 1. Get data from engine
+    # 1. Attempt Refactoring
     refactored_data = refactor_code_with_ollama(name, code)
     
-    # Check if the engine returned None or failed
-    if not refactored_data or "refactored_code" not in refactored_data:
-        print(f"⚠️ Engine failed for {name}, keeping original code.")
+    # If the engine failed to return data, treat it as an empty refactoring
+    if refactored_data is None:
+        print(f"⚠️ Engine failed for {name}, skipping refactoring.")
         return code, "Engine failed"
 
-    new_code = refactored_data.get("refactored_code")
-
-    # Ensure new_code is actually a string before compiling
-    if not isinstance(new_code, str):
-        print(f"⚠️ Invalid output format for {name}.")
-        return code, "invalid_format"
+    new_code = refactored_data.get("refactored_code", code)
     
     # 2. Validate (Self-Healing Loop)
     try:
@@ -205,9 +175,13 @@ def refactor_and_validate(name, code):
         return new_code, "verified"
     except SyntaxError as e:
         print(f"⚠️ Syntax Error in {name}. Attempting fix...")
-        # ... your existing fix logic ...
-        return new_code, "unfixed_error"
+        fix_prompt = f"The following code has a syntax error: {str(e)}. Fix it:\n{new_code}"
         
+        fix_data = refactor_code_with_ollama(name, fix_prompt)
+        if fix_data:
+            return fix_data.get("refactored_code", new_code), "fixed"
+        return new_code, "unfixed_error"
+
 def run_self_healing_pipeline(functions_list, output_file="final_dataset_validated.json"):
     validated_dataset = []
     
@@ -231,6 +205,9 @@ def run_self_healing_pipeline(functions_list, output_file="final_dataset_validat
         time.sleep(2) 
             
     print(f"✅ Pipeline finished. Dataset saved to {output_file}")
+
+# Run the pipeline
+run_self_healing_pipeline(functions_to_refactor)
 
 # --- Helper Function: Call Ollama for Report ---
 def generate_analytics_report(metrics_old, metrics_new):
@@ -342,6 +319,7 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
 
         fig.tight_layout()
         plt.savefig("comparative_analysis.png")
+        plt.show()
         print("✅ Comparative plot generated: comparative_analysis.png")
 
         # --- AI Reporting ---
@@ -356,37 +334,31 @@ def run_comparative_analytics(old_file="final_dataset.json", new_file="final_dat
     except FileNotFoundError as e:
         print(f"⚠️ Error: One or both files not found. Please ensure both JSON files exist. {e}")
 
+# Run the comparative analytics
+run_comparative_analytics()
+
 # --- 2. EXECUTION LOGIC ---
 if __name__ == "__main__":
-    if not ensure_ollama_running(): exit(1)
-    
-    functions = extract_functions_from_library(requests)
-    results = []
-    
-    for name, code in functions:
-        print(f"⚙️ Healing: {name}...")
-        # Use the healing loop
-        final_code, status = self_healing_refactor(name, code)
-        
-        # Save progress immediately
-        results.append({"function": name, "code": final_code, "status": status})
-        with open("progress.json", "w") as f:
-            json.dump(results, f, indent=4)
-            
-    print("🏁 Pipeline finished safely.")
     print("🚀 Starting Pipeline...")
     
-    # 1. Extraction
-    functions = extract_functions_from_library(requests)
-    
-    # 2. Process (This generates the file)
-    process_and_save_dataset(functions, "final_dataset.json")
-    
-    # 3. Heal (This generates the second file)
-    run_self_healing_pipeline(functions, "final_dataset_validated.json")
-    
-    # 4. Analytics (Only run this AFTER the files exist)
-    # Move your plotting and reading logic into a function called here
-    run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
-    
-    print("🏁 All processes finished successfully!")
+    # Ensure Ollama is reachable
+    try:
+        # Step 1: Extraction
+        target_library = requests
+        functions_to_refactor = extract_functions_from_library(target_library)
+        print(f"✅ Extracted {len(functions_to_refactor)} functions.")
+
+        # Step 2: Processing & Self-Healing
+        # We process to save the base dataset first
+        process_and_save_dataset(functions_to_refactor, "final_dataset.json")
+        
+        # Then run the healing pipeline
+        run_self_healing_pipeline(functions_to_refactor, "final_dataset_validated.json")
+        
+        # Step 3: Analytics
+        run_comparative_analytics("final_dataset.json", "final_dataset_validated.json")
+        
+        print("🏁 All processes finished successfully!")
+        
+    except Exception as e:
+        print(f"❌ CRITICAL ERROR: {e}")
