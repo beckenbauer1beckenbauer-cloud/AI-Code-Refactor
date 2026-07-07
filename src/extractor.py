@@ -1,9 +1,5 @@
+import requests
 import inspect
-import logging
-
-# Set up logging to track what the tool is doing
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 def extract_functions_from_library(library):
     """
@@ -20,10 +16,25 @@ def extract_functions_from_library(library):
                 # Attempt to get the source code of the function
                 source = inspect.getsource(obj)
                 extracted_data.append((name, source))
-                logger.info(f"Successfully extracted function: {name}")
             except (TypeError, OSError):
                 # Some functions (like built-ins) don't have accessible source code
                 # We skip these to avoid errors
                 continue
                 
     return extracted_data
+
+# Define the library we want to process
+target_library = requests
+
+# Run the extraction function
+functions_to_refactor = extract_functions_from_library(target_library)
+
+# Display the result to confirm what has been extracted
+print(f"✅ Successfully extracted {len(functions_to_refactor)} functions from '{target_library.__name__}'.")
+print("-" * 40)
+
+# Print the names of the functions to ensure transparency before proceeding
+for name, _ in functions_to_refactor:
+    print(f"Found: {name}")
+
+# Now, 'functions_to_refactor' contains the actual data ready for the next step.
