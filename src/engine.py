@@ -1,16 +1,14 @@
 import requests
 import json
-import logging
 
-logger = logging.getLogger(__name__)
-
-def refactor_code_with_ollama(name, code, model="llama3.2:3b"):
+def refactor_code_with_ollama(name, code):
     """
     Sends the raw function code to the local Ollama instance and 
     returns the refactored code and explanation in JSON format.
     """
     url = "http://localhost:11434/api/generate"
     
+    # We define the role and task for the AI engine
     system_prompt = (
         "You are an expert Python engineer. Refactor the provided function to: "
         "1. Add comprehensive type hints. "
@@ -20,7 +18,7 @@ def refactor_code_with_ollama(name, code, model="llama3.2:3b"):
     )
     
     payload = {
-        "model": model,
+        "model": "llama3.2:3b",
         "prompt": f"{system_prompt}\n\nFunction '{name}' code:\n{code}",
         "stream": False,
         "format": "json"
@@ -30,10 +28,23 @@ def refactor_code_with_ollama(name, code, model="llama3.2:3b"):
         response = requests.post(url, json=payload)
         if response.status_code == 200:
             data = response.json()
+            # The AI response is in the 'response' field
             return json.loads(data['response'])
         else:
-            logger.error(f"Server returned {response.status_code} for function {name}")
+            print(f"Error: Server returned {response.status_code}")
             return None
     except Exception as e:
-        logger.error(f"Engine failure for {name}: {e}")
+        print(f"Engine failure for {name}: {e}")
         return None
+
+# Test the engine with the first function in our list
+if 'functions_to_refactor' in globals() and functions_to_refactor:
+    sample_name, sample_code = functions_to_refactor[0]
+    print(f"🚀 Running engine test on: {sample_name}...")
+    result = refactor_code_with_ollama(sample_name, sample_code)
+    
+    if result:
+        print("✅ Engine Test Successful!")
+        print(f"Explanation: {result['explanation']}")
+    else:
+        print("❌ Engine Test Failed.")
