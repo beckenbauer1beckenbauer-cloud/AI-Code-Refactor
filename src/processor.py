@@ -33,7 +33,7 @@ def refactor_and_validate(name, code):
         if isinstance(fix_data, dict) and isinstance(fix_data.get("refactored_code"), str):
             return fix_data.get("refactored_code"), "fixed"
 
-        def process_dataset(functions_list, output_file):
+def process_dataset(functions_list, output_file):
     """Processes a list of functions and saves them to a file."""
     validated_dataset = []
     
@@ -54,5 +54,3 @@ def refactor_and_validate(name, code):
         time.sleep(2) # Prevent server overload
             
     return validated_dataset
-        
-        return new_code, "unfixed_error"
