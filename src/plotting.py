@@ -8,7 +8,7 @@ with open("final_dataset.json", "r") as f:
 # 2. Extract metrics (length of code in characters)
 names = [entry['function'] for entry in dataset]
 orig_lengths = [len(entry['original_code']) for entry in dataset]
-refactored_lengths = [len(entry['refactored_code']) for entry in dataset]
+refactored_lengths = [len(entry['refactored_code'] or '') for entry in dataset] # Handle None values
 
 # 3. Create the plot
 plt.figure(figsize=(12, 6))
