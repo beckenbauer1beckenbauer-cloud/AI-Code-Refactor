@@ -1,6 +1,19 @@
 # --- Execution ---
 if __name__ == "__main__":
-    target_library = requests
-    funcs = extract_functions_from_library(target_library)
-    json_path = run_self_healing_pipeline(funcs)
-    run_comparative_analytics("final_dataset.json", json_path)
+    # Ensure requests is imported at the top of the file: 
+    # import requests 
+    
+    # Check if requests is defined to prevent NameError
+    try:
+        target_library = requests
+        print(f"Targeting library: {target_library.__name__}")
+        
+        extracted_funcs = extract_functions_from_library(target_library)
+        if extracted_funcs:
+            json_path = run_self_healing_pipeline(extracted_funcs)
+            run_comparative_analytics("final_dataset.json", json_path)
+        else:
+            print("No functions were extracted. Check your target library.")
+            
+    except NameError:
+        print("Error: 'requests' is not defined. Please ensure 'import requests' is at the top of main.py")
