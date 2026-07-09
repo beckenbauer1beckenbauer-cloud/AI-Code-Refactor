@@ -1,6 +1,3 @@
-import json
-import time
-
 def process_and_save_dataset(functions_list, output_file="final_dataset.json"):
     """
     Processes all extracted functions and saves them to a structured JSON file.
