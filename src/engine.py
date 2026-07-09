@@ -1,6 +1,3 @@
-import requests
-import json
-
 def refactor_code_with_ollama(name, code):
     """
     Sends the raw function code to the local Ollama instance and
