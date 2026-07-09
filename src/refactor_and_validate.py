@@ -1,6 +1,3 @@
-import json
-import time
-
 def refactor_and_validate(name, code):
     """
     Refactors code with bulletproof error handling.
