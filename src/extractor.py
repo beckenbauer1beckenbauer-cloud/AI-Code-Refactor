@@ -1,6 +1,3 @@
-import requests
-import inspect
-
 def extract_functions_from_library(library):
     """
     Extracts all functions from a given library and returns a list
