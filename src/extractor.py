@@ -3,11 +3,11 @@ import inspect
 
 def extract_functions_from_library(library):
     """
-    Extracts all functions from a given library and returns a list 
+    Extracts all functions from a given library and returns a list
     containing tuples of (function_name, source_code).
     """
     extracted_data = []
-    
+
     # Iterate through all members of the library
     for name, obj in inspect.getmembers(library):
         # We only want to process actual functions
@@ -20,7 +20,7 @@ def extract_functions_from_library(library):
                 # Some functions (like built-ins) don't have accessible source code
                 # We skip these to avoid errors
                 continue
-                
+
     return extracted_data
 
 # Define the library we want to process
