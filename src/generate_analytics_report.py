@@ -1,8 +1,3 @@
-import json
-import matplotlib.pyplot as plt
-import requests
-import numpy as np
-
 # --- Helper Function: Call Ollama for Report ---
 def generate_analytics_report(metrics_old, metrics_new):
     """
