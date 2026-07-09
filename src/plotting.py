@@ -1,6 +1,3 @@
-import json
-import matplotlib.pyplot as plt
-
 # 1. Load the dataset we just created
 with open("final_dataset.json", "r") as f:
     dataset = json.load(f)
