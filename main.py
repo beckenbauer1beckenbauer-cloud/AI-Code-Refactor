@@ -1,3 +1,10 @@
+import sys
+import os
+
+# Add the src directory to the path so Python can find your code
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
+
+
 import requests
 import inspect
 import json
