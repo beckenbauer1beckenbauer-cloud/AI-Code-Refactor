@@ -5,7 +5,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
-import requests
+
 print(f"Requests module location: {requests.__file__}")
 print(f"Available members: {dir(requests)[:10]}") # Check if it has 'get' or 'post'
 
