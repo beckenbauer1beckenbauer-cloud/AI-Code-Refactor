@@ -26,7 +26,7 @@ if __name__ == "__main__":
     pipeline = [
         "extractor.py",
         "engine.py",
-        "processor.py.py",
+        "processor.py",
         "plotting.py",
         "refactor_and_validate.py",
         "generate_analytics_report.py"
