@@ -10,7 +10,6 @@ import os
 
 def run_pipeline_step(script_name):
     print(f"\n--- Ready to execute: {script_name} ---")
-    input("Press Enter to run this step...") # Manual trigger
     
     try:
         # Executes the file as if it were a notebook cell
