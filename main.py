@@ -6,25 +6,36 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-print(f"Requests module location: {requests.__file__}")
-print(f"Available members: {dir(requests)[:10]}") # Check if it has 'get' or 'post'
+import os
 
-# --- Execution ---
-if __name__ == "__main__":
-    # Ensure requests is imported at the top of the file: 
-    # import requests 
+def run_pipeline_step(script_name):
+    print(f"\n--- Ready to execute: {script_name} ---")
+    input("Press Enter to run this step...") # Manual trigger
     
-    # Check if requests is defined to prevent NameError
     try:
-        target_library = requests
-        print(f"Targeting library: {target_library.__name__}")
-        
-        extracted_funcs = extract_functions_from_library(target_library)
-        if extracted_funcs:
-            json_path = run_self_healing_pipeline(extracted_funcs)
-            run_comparative_analytics("final_dataset.json", json_path)
-        else:
-            print("No functions were extracted. Check your target library.")
-            
-    except NameError:
-        print("Error: 'requests' is not defined. Please ensure 'import requests' is at the top of main.py")
+        # Executes the file as if it were a notebook cell
+        exec(open(script_name).read(), globals())
+        print(f"✅ Success: {script_name} completed.")
+    except Exception as e:
+        print(f"❌ Error in {script_name}: {e}")
+        # Stop the pipeline if an error occurs
+        return False
+    return True
+
+if __name__ == "__main__":
+    # Your numbered pipeline steps
+    pipeline = [
+        "extractor.py",
+        "engine.py",
+        "processor.py.py",
+        "plotting.py",
+        "refactor_and_validate.py",
+        "generate_analytics_report.py"
+    ]
+    
+    for step in pipeline:
+        if not run_pipeline_step(step):
+            print("\n🛑 Pipeline halted due to error.")
+            break
+    else:
+        print("\n🎉 Entire pipeline finished successfully!")
