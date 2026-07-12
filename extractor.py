@@ -1,38 +1,36 @@
-import requests
-def extract_functions_from_library(library):
-    """
-    Extracts all functions from a given library and returns a list
-    containing tuples of (function_name, source_code).
-    """
-    extracted_data = []
+import inspect
+import importlib
 
-    # Iterate through all members of the library
-    for name, obj in inspect.getmembers(library):
-        # We only want to process actual functions
+def extract_functions_from_library(library_name):
+    """
+    Extracts all functions from a given library name string.
+    Returns a list of (function_name, source_code).
+    """
+    try:
+        # Dynamically import the library by name
+        lib = importlib.import_module(library_name)
+    except ImportError:
+        raise ValueError(f"Could not find library: {library_name}")
+
+    extracted_data = []
+    for name, obj in inspect.getmembers(lib):
         if inspect.isfunction(obj):
             try:
-                # Attempt to get the source code of the function
                 source = inspect.getsource(obj)
                 extracted_data.append((name, source))
             except (TypeError, OSError):
-                # Some functions (like built-ins) don't have accessible source code
-                # We skip these to avoid errors
                 continue
-
     return extracted_data
 
-# Define the library we want to process
-target_library = requests
+# --- Generalization ---
+# We will set the target library name globally 
+# This can be easily changed in main.py or a config file
+TARGET_LIB = "requests" 
 
-# Run the extraction function
-functions_to_refactor = extract_functions_from_library(target_library)
-
-# Display the result to confirm what has been extracted
-print(f"✅ Successfully extracted {len(functions_to_refactor)} functions from '{target_library.__name__}'.")
-print("-" * 40)
-
-# Print the names of the functions to ensure transparency before proceeding
-for name, _ in functions_to_refactor:
-    print(f"Found: {name}")
-
-# Now, 'functions_to_refactor' contains the actual data ready for the next step.
+try:
+    functions_to_refactor = extract_functions_from_library(TARGET_LIB)
+    print(f"✅ Successfully extracted {len(functions_to_refactor)} functions from '{TARGET_LIB}'.")
+    for name, _ in functions_to_refactor:
+        print(f"Found: {name}")
+except Exception as e:
+    print(f"❌ Error during extraction: {e}")
