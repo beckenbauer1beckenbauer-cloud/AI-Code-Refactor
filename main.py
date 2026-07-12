@@ -21,6 +21,19 @@ def run_pipeline_step(script_name):
         return False
     return True
 
+# Interactive model picker
+print("Available Models:")
+print("1. Llama 3.2 (General)")
+print("2. Codellama (Coding focus)")
+choice = input("Choose a model (1/2): ")
+
+if choice == "1":
+    SELECTED_MODEL = "llama3.2:3b"
+else:
+    SELECTED_MODEL = "codellama"
+
+globals()['SELECTED_MODEL'] = SELECTED_MODEL
+
 if __name__ == "__main__":
     # Your numbered pipeline steps
     pipeline = [
