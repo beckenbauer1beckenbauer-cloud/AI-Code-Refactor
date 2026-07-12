@@ -1,4 +1,4 @@
-def refactor_code_with_engine(name, code):
+def refactor_code_with_engine(name, code, prompt_type="refactor"):
     """
     Refactors code using the engine specified in engine_state.json.
     """
@@ -15,6 +15,17 @@ def refactor_code_with_engine(name, code):
         "Return ONLY a raw JSON object with two keys: 'refactored_code' and 'explanation'."
     )
 
+    # CRITICAL: Force the model to output ONLY valid JSON
+    system_instruction = (
+        "You are a coding assistant. "
+        "You must return your response ONLY as a valid JSON object with this exact structure: "
+        '{"refactored_code": "your code here"}. '
+        "Do not include any introductory text, markdown formatting like ```json, or explanations."
+    )
+    
+    # When sending the prompt, include the structure requirement
+    full_prompt = f"{system_instruction}\n\nTask: {code}"
+    
     # --- ENGINE: OLLAMA ---
     if engine_state['engine'] == "ollama":
         url = "http://localhost:11434/api/generate"
