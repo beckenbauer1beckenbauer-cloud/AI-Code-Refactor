@@ -22,7 +22,14 @@ def setup_environment():
 if __name__ == "__main__":
     setup_environment()
     # Define your pipeline sequence
-    pipeline = ["1_extract.py", "2_engine.py", "3_processor.py", "4_plot.py", "5_validate.py", "6_analytics.py"]
+    pipeline = [
+        "extractor.py",
+        "engine.py",
+        "processor.py",
+        "plotting.py",
+        "refactor_and_validate.py",
+        "generate_analytics_report.py"
+    ]
     for step in pipeline:
         print(f"\n🚀 Running: {step}")
         exec(open(step).read(), globals())
