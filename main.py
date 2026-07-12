@@ -8,9 +8,15 @@ def setup_environment():
     for i, model in enumerate(config.keys()): print(f"{i+1}. {model}")
     choice = list(config.keys())[int(input("Selection: "))-1]
 
-    target_lib = input("Enter the name of the Python library you want to analyze (e.g., requests, os, json): ")
+    # NEW: Ask for the library and validate it is not empty
+    target_lib = input("Enter the name of the Python library you want to analyze: ").strip()
     
-    # Save both model choice AND target library to state
+    if not target_lib:
+        print("\n❌ Error: You must specify a library name to proceed.")
+        print("Please restart the script and enter a valid library name.")
+        sys.exit(1) # Stop the execution completely
+    
+    # Save target_lib to state
     state = config[choice]
     state['target_lib'] = target_lib
     
