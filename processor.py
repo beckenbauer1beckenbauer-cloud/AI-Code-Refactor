@@ -1,6 +1,7 @@
 def process_and_save_dataset(functions_list, output_file="final_dataset.json"):
     """
-    Processes all extracted functions and saves them to a structured JSON file.
+    Processes all extracted functions using the selected engine
+    and saves them to a structured JSON file.
     """
     final_dataset = []
 
@@ -9,21 +10,23 @@ def process_and_save_dataset(functions_list, output_file="final_dataset.json"):
     for name, code in functions_list:
         print(f"Processing: {name}...")
 
-        # Call the refactoring engine
-        result = refactor_code_with_ollama(name, code)
+        # Use the unified refactoring engine function from 2_engine.py
+        result = refactor_code_with_engine(name, code)
 
         if result:
-            # Structuring the data
+            # Structuring the data consistently
             dataset_entry = {
                 "function": name,
                 "original_code": code,
-                "refactored_code": result.get("refactored_code", ""),
-                "explanation": result.get("explanation", "")
+                "refactored_code": result.get("refactored_code", "N/A"),
+                "explanation": result.get("explanation", "N/A")
             }
             final_dataset.append(dataset_entry)
+        else:
+            print(f"⚠️ Skipping {name} due to engine failure.")
 
-        # Adding a short pause to ensure the local Ollama server stays responsive
-        time.sleep(1)
+        # Optional: Short pause to prevent resource thrashing
+        # time.sleep(1)
 
     # Save to JSON file
     with open(output_file, "w") as f:
@@ -31,5 +34,9 @@ def process_and_save_dataset(functions_list, output_file="final_dataset.json"):
 
     print(f"✅ Success! Dataset saved to '{output_file}'.")
 
-# Execute the final pipeline
-process_and_save_dataset(functions_to_refactor)
+# Execute the pipeline
+# We assume 'functions_to_refactor' is available in globals()
+if 'functions_to_refactor' in globals():
+    process_and_save_dataset(functions_to_refactor)
+else:
+    print("❌ Error: 'functions_to_refactor' list not found.")
