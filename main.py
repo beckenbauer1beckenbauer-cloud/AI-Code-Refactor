@@ -7,6 +7,15 @@ def setup_environment():
     print("--- Choose your AI Engine ---")
     for i, model in enumerate(config.keys()): print(f"{i+1}. {model}")
     choice = list(config.keys())[int(input("Selection: "))-1]
+
+    target_lib = input("Enter the name of the Python library you want to analyze (e.g., requests, os, json): ")
+    
+    # Save both model choice AND target library to state
+    state = config[choice]
+    state['target_lib'] = target_lib
+    
+    with open("engine_state.json", "w") as f:
+        json.dump(state, f)
     
     # Install command handling
     cmd = config[choice]['install']
