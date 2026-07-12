@@ -1,0 +1,17 @@
+{
+    "llama3_ollama": {
+        "engine": "ollama",
+        "install": "curl -fsSL https://ollama.com/install.sh | sh && ollama pull llama3.2",
+        "run_cmd": "ollama serve"
+    },
+    "gemma_native": {
+        "engine": "native",
+        "install": "pip install llama-cpp-python",
+        "model_file": "gemma-2b-it-q4_k_m.gguf"
+    },
+    "qwen_native": {
+        "engine": "native",
+        "install": "pip install llama-cpp-python",
+        "model_file": "qwen2.5-3b-instruct-q4_k_m.gguf"
+    }
+}
