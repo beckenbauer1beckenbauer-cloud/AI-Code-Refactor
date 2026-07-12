@@ -61,6 +61,22 @@ def refactor_code_with_engine(name, code, prompt_type="refactor"):
         except Exception as e:
             print(f"Engine failure (Native) for {name}: {e}")
         return None
+     # 2. Sanitize the output before parsing
+    try:
+        # Step A: Strip whitespace
+        raw_output = raw_output.strip()
+        
+        # Step B: Remove markdown code blocks if the AI included them
+        # This regex looks for ```json ... ``` and removes the markers
+        clean_output = re.sub(r'^```json\s*', '', raw_output, flags=re.IGNORECASE)
+        clean_output = re.sub(r'```$', '', clean_output).strip()
+        
+        # Step C: Final attempt at parsing
+        return json.loads(clean_output)
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON Parsing failed for {name}. Raw output was: {raw_output}")
+        return None 
 
 # --- Pipeline Execution ---
 if 'functions_to_refactor' in globals() and functions_to_refactor:
