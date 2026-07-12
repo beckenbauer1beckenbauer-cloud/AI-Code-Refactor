@@ -4,7 +4,7 @@ import json
 import time
 import matplotlib.pyplot as plt
 import numpy as np
-
+import subprocess
 
 import os
 
@@ -21,18 +21,43 @@ def run_pipeline_step(script_name):
         return False
     return True
 
-# Interactive model picker
-print("Available Models:")
-print("1. Llama 3.2 (General)")
-print("2. Codellama (Coding focus)")
-choice = input("Choose a model (1/2): ")
 
-if choice == "1":
-    SELECTED_MODEL = "llama3.2:3b"
-else:
-    SELECTED_MODEL = "codellama"
+def is_colab():
+    return 'google.colab' in sys.modules
 
-globals()['SELECTED_MODEL'] = SELECTED_MODEL
+def run_command(command):
+    if is_colab():
+        from IPython import get_ipython
+        get_ipython().magic(f"!{command}")
+    else:
+        subprocess.run(command, shell=True)
+
+def setup_environment():
+    with open('models_config.json', 'r') as f:
+        config = json.load(f)
+    
+    print("--- Choose your AI Engine ---")
+    for i, model in enumerate(config.keys()):
+        print(f"{i+1}. {model}")
+    
+    choice_idx = int(input("Enter the number of your choice: ")) - 1
+    choice = list(config.keys())[choice_idx]
+    selected = config[choice]
+    
+    print(f"🚀 Initializing {choice}...")
+    run_command(selected['install'])
+    
+    if selected['engine'] == "ollama":
+        if is_colab():
+            get_ipython().system_raw("ollama serve &")
+        else:
+            subprocess.Popen(["ollama", "serve"])
+            
+    # Save choice to a file so other scripts can read it
+    with open("engine_state.json", "w") as f:
+        json.dump(selected, f)
+    
+    return choice
 
 if __name__ == "__main__":
     # Your numbered pipeline steps
