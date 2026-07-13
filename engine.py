@@ -2,6 +2,21 @@ import json
 import re
 import requests
 
+def ai_debug_and_rewrite(script_path, error_log):
+    with open(script_path, "r") as f:
+        broken_code = f.read()
+        
+    prompt = f"File {script_path} crashed with error: {error_log}. Rewrite the code to fix this error. Output ONLY the fixed code."
+    
+    # Get fix from engine
+    result = refactor_code_with_engine("DebugAgent", prompt)
+    
+    if result and 'refactored_code' in result:
+        with open(script_path, "w") as f:
+            f.write(result['refactored_code'])
+        return True
+    return False
+
 def refactor_code_with_engine(name, code):
     """
     Refactors code using the engine specified in engine_state.json.
@@ -76,18 +91,3 @@ def refactor_code_with_engine(name, code):
             return None
             
     return None
-
-def ai_debug_and_rewrite(script_path, error_log):
-    with open(script_path, "r") as f:
-        broken_code = f.read()
-        
-    prompt = f"File {script_path} crashed with error: {error_log}. Rewrite the code to fix this error. Output ONLY the fixed code."
-    
-    # Get fix from engine
-    result = refactor_code_with_engine("DebugAgent", prompt)
-    
-    if result and 'refactored_code' in result:
-        with open(script_path, "w") as f:
-            f.write(result['refactored_code'])
-        return True
-    return False
