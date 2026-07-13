@@ -34,6 +34,15 @@ def setup_environment():
     with open("engine_state.json", "w") as f: json.dump(config[choice], f)
     return choice
 
+# After installing, check for and run the download
+    if "download" in selected_model_config:
+        print("📥 Downloading model file...")
+        subprocess.run(selected_model_config["download"], shell=True)
+        
+    # Verify the file exists
+    if not os.path.exists(selected_model_config["model_file"]):
+        print("❌ Error: Model file download failed!")
+
 if __name__ == "__main__":
     setup_environment()
     # Define your pipeline sequence
