@@ -4,14 +4,16 @@
         "install": "curl -fsSL https://ollama.com/install.sh | sh && ollama pull llama3.2",
         "run_cmd": "ollama serve"
     },
-    "gemma_native": {
+    "qwen_lite": {
         "engine": "native",
-        "install": "pip install llama-cpp-python && wget -O gemma-2b-it-q4_k_m.gguf https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
-        "model_file": "gemma-2b-it-q4_k_m.gguf"
+        "install": "pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu",
+        "download": "wget -O model.gguf https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+        "model_file": "model.gguf"
     },
-    "qwen_native": {
+    "gemma_lite": {
         "engine": "native",
-        "install": "pip install llama-cpp-python && wget -O qwen2.5-3b-instruct-q4_k_m.gguf https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
-        "model_file": "qwen2.5-3b-instruct-q4_k_m.gguf"
+        "install": "pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu",
+        "download": "wget -O model.gguf https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
+        "model_file": "model.gguf"
     }
 }
