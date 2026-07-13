@@ -11,9 +11,9 @@
         "model_file": "model.gguf"
     },
     "gemma_lite": {
-        "engine": "native",
-        "install": "pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu",
-        "download": "wget -O model.gguf https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
-        "model_file": "model.gguf"
+    "engine": "native",
+    "install": "pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu",
+    "download": "wget -O model.gguf https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
+    "model_file": "model.gguf"
     }
 }
