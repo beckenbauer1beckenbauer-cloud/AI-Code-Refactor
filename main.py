@@ -2,6 +2,8 @@ import os
 import sys
 import json
 import subprocess
+import matplotlib.pyplot as plt
+import numpy as np
 
 def is_colab(): 
     return 'google.colab' in sys.modules
