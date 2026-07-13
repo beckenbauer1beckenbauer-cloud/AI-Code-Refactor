@@ -5,23 +5,22 @@ import requests
 def refactor_code_with_engine(name, code):
     """
     Refactors code using the engine specified in engine_state.json.
-    Includes robust JSON sanitization to prevent crashes.
+    Includes context-window expansion and automated JSON repair.
     """
     with open("engine_state.json", "r") as f:
         engine_state = json.load(f)
 
-    # 1. Define strict prompt
+    # Strict, token-efficient system instruction
     system_instruction = (
-        "You are an expert Python engineer. "
-        "Return ONLY a raw JSON object with keys: 'refactored_code' and 'explanation'. "
-        "Do not include markdown, code blocks, or introductory text."
+        "Output ONLY valid JSON. Structure: {'refactored_code': '...', 'explanation': '...'}. "
+        "Do not include markdown or explanations outside JSON."
     )
     full_prompt = f"{system_instruction}\n\nTask: Refactor this function:\n{code}"
 
     raw_output = None
 
     # --- ENGINE: OLLAMA ---
-    if engine_state['engine'] == "ollama":
+    if engine_state.get('engine') == "ollama":
         url = "http://localhost:11434/api/generate"
         payload = {
             "model": engine_state.get("model_id", "llama3.2:3b"),
@@ -30,17 +29,22 @@ def refactor_code_with_engine(name, code):
             "format": "json"
         }
         try:
-            response = requests.post(url, json=payload)
+            response = requests.post(url, json=payload, timeout=60)
             if response.status_code == 200:
                 raw_output = response.json().get('response')
         except Exception as e:
             print(f"Engine failure (Ollama) for {name}: {e}")
 
     # --- ENGINE: NATIVE ---
-    elif engine_state['engine'] == "native":
+    elif engine_state.get('engine') == "native":
         try:
             from llama_cpp import Llama
-            llm = Llama(model_path=engine_state['model_file'], verbose=False)
+            # n_ctx=2048 solves the "token limit exceeded" error
+            llm = Llama(
+                model_path=engine_state['model_file'], 
+                n_ctx=2048, 
+                verbose=False
+            )
             output = llm.create_chat_completion(
                 messages=[{"role": "user", "content": full_prompt}],
                 response_format={"type": "json_object"}
@@ -49,13 +53,18 @@ def refactor_code_with_engine(name, code):
         except Exception as e:
             print(f"Engine failure (Native) for {name}: {e}")
 
-    # --- SANITIZATION (The part you were missing) ---
+    # --- ROBUST SANITIZATION & AUTO-REPAIR ---
     if raw_output:
         try:
-            # Strip whitespace and markdown blocks
-            clean_output = raw_output.strip()
-            clean_output = re.sub(r'^```json\s*', '', clean_output, flags=re.IGNORECASE)
+            # 1. Clean markdown
+            clean_output = re.sub(r'^```json\s*', '', raw_output, flags=re.IGNORECASE)
             clean_output = re.sub(r'```$', '', clean_output).strip()
+            
+            # 2. Repair truncated JSON (Auto-closing braces)
+            if clean_output.count('{') > clean_output.count('}'):
+                clean_output += '}'
+            if clean_output.count('"') % 2 != 0:
+                clean_output += '"'
             
             return json.loads(clean_output)
         except json.JSONDecodeError:
