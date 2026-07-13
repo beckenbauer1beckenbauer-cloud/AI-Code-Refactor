@@ -55,20 +55,24 @@ def refactor_code_with_engine(name, code):
 
     # --- ROBUST SANITIZATION & AUTO-REPAIR ---
     if raw_output:
+       if raw_output:
         try:
-            # 1. Clean markdown
+            # 1. Clean markdown blocks
             clean_output = re.sub(r'^```json\s*', '', raw_output, flags=re.IGNORECASE)
             clean_output = re.sub(r'```$', '', clean_output).strip()
             
-            # 2. Repair truncated JSON (Auto-closing braces)
+            # 2. FIX: Manual escape cleanup 
+            # The model is adding double backslashes (\\*) that break JSON
+            clean_output = clean_output.replace('\\\\', '\\')
+            
+            # 3. Repair truncated JSON (Auto-closing braces)
             if clean_output.count('{') > clean_output.count('}'):
                 clean_output += '}'
-            if clean_output.count('"') % 2 != 0:
-                clean_output += '"'
             
             return json.loads(clean_output)
-        except json.JSONDecodeError:
-            print(f"❌ JSON Parsing failed for {name}. Raw output was: {raw_output}")
+        except json.JSONDecodeError as e:
+            print(f"❌ JSON Parsing failed: {e}")
+            print(f"Raw output was: {raw_output}")
             return None
             
     return None
