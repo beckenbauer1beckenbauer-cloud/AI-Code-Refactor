@@ -30,7 +30,7 @@ def run_step_with_healing(script_name):
     return False
 
 # Main Pipeline Controller
-pipeline = ["extractor.py", "processor.py", "refactor_and_validate.py"]
+pipeline = ["extractor.py", "engine.py","processor.py", "plotting.py","refactor_and_validate.py","generate_analytics_report.py"]
 
 for step in pipeline:
     if not run_step_with_healing(step):
