@@ -68,7 +68,7 @@ if __name__ == "__main__":
     setup_environment()
     
     # Pipeline sequence
-    pipeline = ["extractor.py", "processor.py", "refactor_and_validate.py", "generate_analytics_report.py"]
+    pipeline = ["extractor.py", "engine.py","processor.py", "plotting.py","refactor_and_validate.py","generate_analytics_report.py"]
     
     for step in pipeline:
         if os.path.exists(step):
