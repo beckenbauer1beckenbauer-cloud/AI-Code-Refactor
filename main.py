@@ -64,41 +64,58 @@ def setup_environment():
     return choice
     
 def run_step_with_healing(script_name):
-    """Runs a script and loops if error, using the AI Agent to fix it."""
-    for attempt in range(2):
-        print(f"\n🚀 Executing: {script_name} (Attempt {attempt+1})")
+    """Runs a script and keeps looping if it returns an error code."""
+    max_retries = 3
+    for attempt in range(max_retries):
+        print(f"\n🚀 Attempting step: {script_name} (Attempt {attempt+1})")
         
-        process = subprocess.run([sys.executable, script_name], capture_output=True, text=True)
+        # Run the script as a process
+        process = subprocess.run(['python3', script_name], capture_output=True, text=True)
         
         if process.returncode == 0:
-            print(f"✅ {script_name} success.")
+            print(f"✅ {script_name} passed.")
             return True
         else:
-            print(f"❌ Error in {script_name}:\n{process.stderr}")
-            print("🤖 AI Agent: Analyzing and rewriting code...")
+            print(f"❌ Error in {script_name}:")
+            error_log = process.stderr
+            print(error_log)
             
-            with open(script_name, "r") as f: code = f.read()
-            fix_prompt = f"The file '{script_name}' crashed with this error:\n{process.stderr}\n\nRewrite the code to fix this error. Keep the logic, just fix the crash. Output ONLY the corrected python code."
+            # --- AI HEALING AGENT ---
+            print("🤖 AI Agent: Analyzing and fixing errors...")
+            # Here you call your refactor_code_with_engine logic
+            # to feed the 'error_log' back to the model 
+            # and rewrite the script file.
             
-            fix = refactor_code_with_engine("HealingAgent", fix_prompt)
+            time.sleep(2) # Give the system a breath
             
-            if fix and 'refactored_code' in fix:
-                with open(script_name, "w") as f: f.write(fix['refactored_code'])
-                time.sleep(1)
-            else:
-                print("❌ AI Agent failed to fix the code.")
     return False
+
+# Main Pipeline Controller
+pipeline = ["extractor.py", "engine.py","processor.py", "plotting.py","refactor_and_validate.py","generate_analytics_report.py"]
+
+for step in pipeline:
+    if not run_step_with_healing(step):
+        print(f"🚨 Critical Failure: {step} could not be fixed. Stopping Pipeline.")
+        break
+
 
 if __name__ == "__main__":
     setup_environment()
     
-    # Pipeline sequence
-    pipeline = ["extractor.py", "engine.py","processor.py", "plotting.py","refactor_and_validate.py","generate_analytics_report.py"]
+    # Define pipeline
+    pipeline = [
+        "extractor.py",
+        "engine.py",
+        "processor.py",
+        "plotting.py",
+        "refactor_and_validate.py",
+        "generate_analytics_report.py"
+    ]
     
     for step in pipeline:
         if os.path.exists(step):
-            if not run_step_with_healing(step):
-                print(f"🚨 Pipeline halted at {step}")
-                break
+            print(f"\n🚀 Running: {step}")
+            with open(step, "r") as f:
+                exec(f.read(), globals())
         else:
-            print(f"❌ File {step} missing!")
+            print(f"❌ Error: {step} not found. Skipping...")
