@@ -1,21 +1,22 @@
-def generate_refactoring_report(input_file="final_dataset.json", output_image="refactoring_analysis.png"):
+import json
+import matplotlib.pyplot as plt
+
+def generate_plot(data_file="final_dataset.json"):
     """
-    Reads the processed dataset and generates a comparison plot 
-    between original and refactored code lengths.
+    Reads the dataset and generates a comparison plot of code lengths.
     """
     try:
-        # Load the dataset
-        with open(input_file, "r") as f:
+        with open(data_file, "r") as f:
             dataset = json.load(f)
         
         if not dataset:
             print("⚠️ Dataset is empty. Cannot generate plot.")
             return
 
-        # Extract data
+        # Extract metrics
         names = [entry['function'] for entry in dataset]
         orig_lengths = [len(entry['original_code']) for entry in dataset]
-        refactored_lengths = [len(entry['refactored_code'] or '') for entry in dataset]
+        refactored_lengths = [len(entry['refactored_code']) for entry in dataset]
 
         # Create the plot
         plt.figure(figsize=(12, 6))
@@ -23,9 +24,9 @@ def generate_refactoring_report(input_file="final_dataset.json", output_image="r
         index = range(len(names))
 
         plt.bar(index, orig_lengths, bar_width, label='Original Code Length', color='gray')
-        plt.bar([i + bar_width for i in index], refactored_lengths, bar_width, label='Refactored Code Length', color='blue')
+        plt.bar([i + bar_width for i in index], refactored_lengths, bar_width, 
+                label='Refactored Code Length', color='blue')
 
-        # Formatting
         plt.xlabel('Functions')
         plt.ylabel('Character Count')
         plt.title('Code Expansion Analysis: Original vs Refactored')
@@ -33,15 +34,12 @@ def generate_refactoring_report(input_file="final_dataset.json", output_image="r
         plt.legend()
         plt.tight_layout()
 
-        # Save and display
-        plt.savefig(output_image)
+        # Save and Show
+        plt.savefig("refactoring_analysis.png")
         plt.show()
-        print(f"✅ Analysis saved to '{output_image}'.")
-
+        print("✅ Plot saved as 'refactoring_analysis.png'.")
+        
     except FileNotFoundError:
-        print(f"❌ Error: '{input_file}' not found. Did you run the processor?")
+        print(f"⚠️ Error: File '{data_file}' not found.")
     except Exception as e:
-        print(f"❌ Plotting error: {e}")
-
-# Execute the analysis
-generate_refactoring_report()
+        print(f"⚠️ An error occurred during plotting: {e}")
