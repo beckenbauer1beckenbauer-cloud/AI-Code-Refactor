@@ -1,42 +1,40 @@
-def process_and_save_dataset(functions_list, output_file="final_dataset.json"):
+import json
+import time
+from engine import refactor_code
+
+def process_and_save_dataset(functions_list, model_name, output_file="final_dataset.json"):
     """
-    Processes all extracted functions using the selected engine
-    and saves them to a structured JSON file.
+    Processes all extracted functions and saves them to a structured JSON file.
+    
+    Args:
+        functions_list (list): List of (name, code) tuples.
+        model_name (str): The model selected by the user.
+        output_file (str): File path to save the dataset.
     """
     final_dataset = []
 
-    print(f"🚀 Starting full dataset processing of {len(functions_list)} functions...")
+    print(f"🚀 Starting full dataset processing of {len(functions_list)} functions using {model_name}...")
 
     for name, code in functions_list:
         print(f"Processing: {name}...")
 
-        # Use the unified refactoring engine function from 2_engine.py
-        result = refactor_code_with_engine(name, code)
+        # Pass the model_name to the engine
+        result = refactor_code(name, code, model_name=model_name)
 
         if result:
-            # Structuring the data consistently
             dataset_entry = {
                 "function": name,
                 "original_code": code,
-                "refactored_code": result.get("refactored_code", "N/A"),
-                "explanation": result.get("explanation", "N/A")
+                "refactored_code": result.get("refactored_code", ""),
+                "explanation": result.get("explanation", "")
             }
             final_dataset.append(dataset_entry)
-        else:
-            print(f"⚠️ Skipping {name} due to engine failure.")
 
-        # Optional: Short pause to prevent resource thrashing
-        # time.sleep(1)
+        # Pause to prevent server overload
+        time.sleep(1)
 
     # Save to JSON file
     with open(output_file, "w") as f:
         json.dump(final_dataset, f, indent=4)
 
     print(f"✅ Success! Dataset saved to '{output_file}'.")
-
-# Execute the pipeline
-# We assume 'functions_to_refactor' is available in globals()
-if 'functions_to_refactor' in globals():
-    process_and_save_dataset(functions_to_refactor)
-else:
-    print("❌ Error: 'functions_to_refactor' list not found.")
