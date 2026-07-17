@@ -1,71 +1,58 @@
 import json
-import sys
-import os
+import time
+from engine import refactor_code
 
-# Import the refactor engine
-from engine import refactor_code_with_engine
-
-def refactor_and_validate(name, code):
+def refactor_and_validate(name, code, model_name):
     """
-    Refactors code and performs a syntax check. 
-    If invalid, attempts a one-time self-healing fix.
-    If healing fails, falls back to the original code.
+    Refactors code with bulletproof error handling using the selected model.
     """
-    print(f"⚙️ Refactoring: {name}...")
-    refactored_data = refactor_code_with_engine(name, code)
+    # 1. Attempt Refactoring
+    refactored_data = refactor_code(name, code, model_name=model_name)
 
-    # 1. Handle Engine Failure
-    if not refactored_data or not isinstance(refactored_data.get("refactored_code"), str):
-        print(f"⚠️ Engine failed for {name}. Keeping original code.")
-        return code, "original"
+    # If the engine failed to return data, treat it as an empty refactoring
+    if refactored_data is None:
+        print(f"⚠️ Engine failed for {name}, skipping refactoring.")
+        return code, "Engine failed"
 
-    new_code = refactored_data["refactored_code"]
+    new_code = refactored_data.get("refactored_code", code)
 
-    # 2. Validation Loop
+    # 2. Validate (Self-Healing Loop)
     try:
         compile(new_code, '<string>', 'exec')
         return new_code, "verified"
     except SyntaxError as e:
-        print(f"⚠️ Syntax Error in {name}. Triggering SELF-HEALING...")
-        
-        # Self-Healing Prompt
-        fix_prompt = f"The following code has a syntax error: {str(e)}. Provide ONLY the corrected code in the same JSON structure:\n{new_code}"
-        
-        fix_data = refactor_code_with_engine(name, fix_prompt)
-        
-        if fix_data and isinstance(fix_data.get("refactored_code"), str):
-            fixed_code = fix_data["refactored_code"]
-            try:
-                compile(fixed_code, '<string>', 'exec')
-                print(f"✅ Self-healing successful for {name}.")
-                return fixed_code, "fixed"
-            except SyntaxError:
-                print(f"❌ Self-healing failed for {name}. Falling back to original.")
-                return code, "original"
-        
-        return code, "original"
+        print(f"⚠️ Syntax Error in {name}. Attempting fix with {model_name}...")
+        fix_prompt = f"The following code has a syntax error: {str(e)}. Fix it:\n{new_code}"
 
-def run_self_healing_pipeline(functions_list, output_file="final_dataset_validated.json"):
+        # Pass the same model_name to the fix attempt
+        fix_data = refactor_code(name, fix_prompt, model_name=model_name)
+        if fix_data:
+            return fix_data.get("refactored_code", new_code), "fixed"
+        return new_code, "unfixed_error"
+
+def run_self_healing_pipeline(functions_list, model_name, output_file="final_dataset_validated.json"):
+    """
+    Runs the full validation pipeline using the selected model.
+    """
     validated_dataset = []
-    for entry in functions_list:
-        # Handle cases where functions_list might be a list of tuples or list of dicts
-        name = entry[0] if isinstance(entry, (tuple, list)) else entry['function']
-        code = entry[1] if isinstance(entry, (tuple, list)) else entry['refactored_code']
-        
-        final_code, status = refactor_and_validate(name, code)
-        validated_dataset.append({"function": name, "refactored_code": final_code, "status": status})
-        
-        # Save incrementally
-        with open(output_file, "w") as f: 
-            json.dump(validated_dataset, f, indent=4)
-            
-    print(f"\n✅ Pipeline finished. Saved to {output_file}")
 
-if __name__ == "__main__":
-    # Ensure data exists from the previous step
-    if os.path.exists("final_dataset.json"):
-        with open("final_dataset.json", "r") as f:
-            functions_to_refactor = json.load(f)
-        run_self_healing_pipeline(functions_to_refactor)
-    else:
-        print("❌ Error: 'final_dataset.json' not found. Please run processor.py first.")
+    for name, code in functions_list:
+        print(f"⚙️ Processing: {name}...")
+
+        # Use our robust refactor/validate function
+        final_code, status = refactor_and_validate(name, code, model_name=model_name)
+
+        validated_dataset.append({
+            "function": name,
+            "refactored_code": final_code,
+            "status": status
+        })
+
+        # Incremental save
+        with open(output_file, "w") as f:
+            json.dump(validated_dataset, f, indent=4)
+
+        # Small delay to prevent server overload
+        time.sleep(2)
+
+    print(f"✅ Pipeline finished. Dataset saved to {output_file}")
