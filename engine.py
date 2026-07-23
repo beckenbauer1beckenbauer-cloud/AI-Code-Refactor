@@ -18,7 +18,6 @@ def clean_json_response(raw_text):
     try:
         return json.loads(raw_text)
     except json.JSONDecodeError:
-        # Fallback regex search for JSON object inside extra text
         json_match = re.search(r"\{.*\}", raw_text, re.DOTALL)
         if json_match:
             try:
@@ -31,6 +30,7 @@ def refactor_code(name, code, model_name="llama3.2:3b"):
     """
     Sends raw function code to Ollama and returns sanitized JSON.
     """
+    # STRICT CLEAN URL - MUST NOT HAVE MARKDOWN BRACKETS OR BRACES
     url = "[http://127.0.0.1:11434/api/generate](http://127.0.0.1:11434/api/generate)"
 
     system_prompt = (
@@ -50,7 +50,7 @@ def refactor_code(name, code, model_name="llama3.2:3b"):
     }
 
     try:
-        response = requests.post(url, json=payload, timeout=60)
+        response = requests.post(url, json=payload, timeout=90)
         if response.status_code == 200:
             data = response.json()
             raw_response = data.get('response', '')
