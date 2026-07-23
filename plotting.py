@@ -1,45 +1,48 @@
 import json
+import os
 import matplotlib.pyplot as plt
 
-def generate_plot(data_file="final_dataset.json"):
+def generate_plot(dataset_file="final_dataset_validated.json", output_plot="refactoring_metrics.png"):
     """
-    Reads the dataset and generates a comparison plot of code lengths.
+    Generates line count comparison plot for original vs refactored functions.
+    Handles flexible schema keys gracefully.
     """
-    try:
-        with open(data_file, "r") as f:
-            dataset = json.load(f)
-        
-        if not dataset:
-            print("⚠️ Dataset is empty. Cannot generate plot.")
-            return
+    if not os.path.exists(dataset_file):
+        print(f"⚠️ Cannot generate plot: '{dataset_file}' missing.")
+        return
 
-        # Extract metrics
-        names = [entry['function'] for entry in dataset]
-        orig_lengths = [len(entry['original_code']) for entry in dataset]
-        refactored_lengths = [len(entry['refactored_code']) for entry in dataset]
+    with open(dataset_file, "r") as f:
+        data = json.load(f)
 
-        # Create the plot
-        plt.figure(figsize=(12, 6))
-        bar_width = 0.35
-        index = range(len(names))
+    if not data:
+        print("⚠️ Plotting skipped: Dataset is empty.")
+        return
 
-        plt.bar(index, orig_lengths, bar_width, label='Original Code Length', color='gray')
-        plt.bar([i + bar_width for i in index], refactored_lengths, bar_width, 
-                label='Refactored Code Length', color='blue')
+    names = []
+    orig_lines = []
+    refact_lines = []
 
-        plt.xlabel('Functions')
-        plt.ylabel('Character Count')
-        plt.title('Code Expansion Analysis: Original vs Refactored')
-        plt.xticks([i + bar_width/2 for i in index], names, rotation=45, ha='right')
-        plt.legend()
-        plt.tight_layout()
+    for item in data:
+        # Flexible key extraction (handles 'function_name' vs 'function')
+        name = item.get("function_name") or item.get("function") or "Unknown"
+        orig_code = item.get("original_code", "")
+        refact_code = item.get("refactored_code", "")
 
-        # Save and Show
-        plt.savefig("refactoring_analysis.png")
-        plt.show()
-        print("✅ Plot saved as 'refactoring_analysis.png'.")
-        
-    except FileNotFoundError:
-        print(f"⚠️ Error: File '{data_file}' not found.")
-    except Exception as e:
-        print(f"⚠️ An error occurred during plotting: {e}")
+        names.append(name)
+        orig_lines.append(len(orig_code.splitlines()))
+        refact_lines.append(len(refact_code.splitlines()))
+
+    plt.figure(figsize=(10, 5))
+    x = range(len(names))
+    plt.bar([i - 0.2 for i in x], orig_lines, width=0.4, label="Original Lines", align="center")
+    plt.bar([i + 0.2 for i in x], refact_lines, width=0.4, label="Refactored Lines", align="center")
+    
+    plt.xticks(x, names, rotation=45, ha="right")
+    plt.ylabel("Line Count")
+    plt.title("Code Line Count Comparison (Original vs Refactored)")
+    plt.legend()
+    plt.tight_layout()
+
+    plt.savefig(output_plot)
+    plt.close()
+    print(f"📊 Visualization graph saved to '{output_plot}'.")
