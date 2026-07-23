@@ -23,36 +23,50 @@ def run_command(command):
         subprocess.run(command, shell=True, check=True)
 
 def setup_environment():
-    """Verifies Ollama is running and handles environment-specific setup."""
+    """Verifies Ollama is running and handles Colab startup with active retry polling."""
     print("--- 🚀 Initializing Refactoring Pipeline ---")
     
     if is_colab():
-        print("🌍 Detected Google Colab environment. Starting Ollama server...")
-        run_command("curl -fsSL https://ollama.com/install.sh | sh")
-        run_command("nohup ollama serve &")
-        time.sleep(5)  # Allow time for server to boot
+        print("🌍 Detected Google Colab environment. Setting up Ollama...")
+        
+        # 1. Install Ollama if binary is not installed
+        try:
+            subprocess.run("command -v ollama", shell=True, check=True, stdout=subprocess.DEVNULL)
+            print("✅ Ollama binary is ready.")
+        except subprocess.CalledProcessError:
+            print("📥 Installing Ollama binary...")
+            subprocess.run("curl -fsSL https://ollama.com/install.sh | sh", shell=True, check=True)
+            
+        # 2. Start Ollama in background via Popen (reliable in Colab)
+        print("⚙️ Spawning background Ollama process...")
+        subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    # Verify Ollama connectivity
-    try:
-        response = requests.get("http://localhost:11434")
-        if response.status_code == 200:
-            print("✅ Ollama server is reachable.")
-    except:
-        print("❌ Error: Ollama server not found. Please ensure it is running.")
-        sys.exit(1)
+    # 3. Poll Ollama server until ready (up to 20 seconds)
+    print("⏳ Waiting for Ollama server to respond...")
+    for attempts in range(20):
+        try:
+            response = requests.get("http://localhost:11434")
+            if response.status_code == 200:
+                print("✅ Ollama server is reachable and ready.")
+                return
+        except requests.exceptions.ConnectionError:
+            time.sleep(1)
+
+    print("❌ Error: Ollama server not found. Please ensure it is running.")
+    sys.exit(1)
 
 def setup_model(model_name):
     """Checks for model and pulls it if missing."""
-    print(f"🔍 Checking for model: {model_name}...")
-    # List models via CLI
-    cmd = "ollama list"
-    output = subprocess.check_output(cmd, shell=True).decode()
-    
-    if model_name in output:
-        print(f"✅ Model {model_name} is already installed.")
-    else:
-        print(f"📥 Pulling model {model_name}... (this may take a few minutes)")
-        run_command(f"ollama pull {model_name}")
+    print(f"\n🔍 Checking for model: {model_name}...")
+    try:
+        output = subprocess.check_output("ollama list", shell=True).decode()
+        if model_name in output:
+            print(f"✅ Model '{model_name}' is already installed.")
+        else:
+            print(f"📥 Pulling model '{model_name}'... (this may take a few minutes)")
+            run_command(f"ollama pull {model_name}")
+    except Exception as e:
+        print(f"⚠️ Could not verify/pull model automatically: {e}")
 
 def get_user_model_choice():
     """Prompt user to select a model."""
@@ -69,7 +83,7 @@ def get_user_model_choice():
     return models.get(choice, choice)
 
 if __name__ == "__main__":
-    # 0. Setup Environment
+    # 0. Setup Environment (Installs & starts Ollama background server)
     setup_environment()
     
     # 1. Select and Install Model
@@ -77,7 +91,7 @@ if __name__ == "__main__":
     setup_model(selected_model)
     
     # 2. Extract Data
-    import requests as lib_to_process # Example library
+    import requests as lib_to_process # Example library to process
     functions = run_extraction(lib_to_process)
     
     # 3. Execution Pipeline
