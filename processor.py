@@ -2,39 +2,32 @@ import json
 import time
 from engine import refactor_code
 
-def process_and_save_dataset(functions_list, model_name, output_file="final_dataset.json"):
+def process_and_save_dataset(functions_list, model_name="llama3.2:3b", output_file="final_dataset.json"):
     """
-    Processes all extracted functions and saves them to a structured JSON file.
-    
-    Args:
-        functions_list (list): List of (name, code) tuples.
-        model_name (str): The model selected by the user.
-        output_file (str): File path to save the dataset.
+    Processes all extracted functions through the LLM engine and saves output incrementally.
     """
-    final_dataset = []
-
     print(f"🚀 Starting full dataset processing of {len(functions_list)} functions using {model_name}...")
+    dataset = []
 
     for name, code in functions_list:
         print(f"Processing: {name}...")
-
-        # Pass the model_name to the engine
+        
         result = refactor_code(name, code, model_name=model_name)
+        
+        refactored_code = result.get("refactored_code", code) if result else code
+        explanation = result.get("explanation", "No explanation provided.") if result else "Engine failed."
 
-        if result:
-            dataset_entry = {
-                "function": name,
-                "original_code": code,
-                "refactored_code": result.get("refactored_code", ""),
-                "explanation": result.get("explanation", "")
-            }
-            final_dataset.append(dataset_entry)
+        dataset.append({
+            "function_name": name,
+            "original_code": code,
+            "refactored_code": refactored_code,
+            "explanation": explanation
+        })
 
-        # Pause to prevent server overload
+        # Save incrementally
+        with open(output_file, "w") as f:
+            json.dump(dataset, f, indent=4)
+
         time.sleep(1)
-
-    # Save to JSON file
-    with open(output_file, "w") as f:
-        json.dump(final_dataset, f, indent=4)
 
     print(f"✅ Success! Dataset saved to '{output_file}'.")
