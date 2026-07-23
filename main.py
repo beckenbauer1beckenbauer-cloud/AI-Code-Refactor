@@ -13,49 +13,64 @@ from refactor_and_validate import run_self_healing_pipeline
 from generate_analytics_report import run_comparative_analytics
 
 def is_colab():
-    """Detects if the code is running in a Google Colab environment."""
-    return 'google.colab' in sys.modules
+    """Reliably detects if code is executing in Google Colab (even inside python subprocesses)."""
+    if "COLAB_RELEASE_TAG" in os.environ or "COLAB_GPU" in os.environ:
+        return True
+    try:
+        import google.colab
+        return True
+    except ImportError:
+        return os.path.exists("/content")
 
 def run_command(command):
     """Executes shell commands, handling Colab's specific syntax."""
     if is_colab():
         from IPython import get_ipython
-        get_ipython().system(command)
-    else:
-        subprocess.run(command, shell=True, check=True)
+        if get_ipython():
+            get_ipython().system(command)
+            return
+    subprocess.run(command, shell=True, check=True)
 
 def start_ollama_background():
-    """Helper function to run Ollama inside a background daemon thread with env vars set."""
+    """Runs Ollama serve in a background daemon thread with local host bindings."""
     ollama_path = "/usr/local/bin/ollama" if os.path.exists("/usr/local/bin/ollama") else "ollama"
-    
-    # Configure environment variables so Ollama binds to localhost
     env = os.environ.copy()
     env["OLLAMA_HOST"] = "127.0.0.1:11434"
-    
-    # Start Ollama server process
     subprocess.Popen([ollama_path, "serve"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def setup_environment():
-    """Verifies Ollama is running and handles Colab startup using threading and apt dependencies."""
+    """Installs dependencies and ensures Ollama is actively running."""
     print("--- 🚀 Initializing Refactoring Pipeline ---")
     
-    if is_colab():
-        print("🌍 Detected Google Colab environment. Setting up Ollama...")
-        
-        # 1. Install necessary Colab system dependencies (required by Ollama installer)
+    in_colab = is_colab()
+    
+    # 1. First, check if Ollama is ALREADY running
+    try:
+        if requests.get("http://127.0.0.1:11434").status_code == 200:
+            print("✅ Ollama server is already up and reachable.")
+            return
+    except requests.exceptions.ConnectionError:
+        pass
+
+    # 2. If running on Colab or local Linux without active Ollama, set it up
+    print(f"🌍 Environment detected: {'Google Colab' if in_colab else 'Local/Server'}")
+    
+    if in_colab:
         print("🔧 Installing system dependencies (pciutils, zstd)...")
         subprocess.run("sudo apt-get update -qq && sudo apt-get install -y -qq pciutils zstd", shell=True, check=True)
 
-        # 2. Install Ollama binary directly via official install script
+    # Install Ollama binary if missing
+    ollama_bin = "/usr/local/bin/ollama"
+    if not os.path.exists(ollama_bin) and subprocess.run("which ollama", shell=True, capture_output=True).returncode != 0:
         print("📥 Installing Ollama binary...")
         subprocess.run("curl -fsSL https://ollama.com/install.sh | sh", shell=True, check=True)
-            
-        # 3. Start Ollama in background thread
-        print("⚙️ Spawning background Ollama process...")
-        thread = threading.Thread(target=start_ollama_background, daemon=True)
-        thread.start()
 
-    # 4. Poll Ollama server until ready (up to 30 seconds)
+    # 3. Start background server thread
+    print("⚙️ Spawning background Ollama process...")
+    thread = threading.Thread(target=start_ollama_background, daemon=True)
+    thread.start()
+
+    # 4. Wait for server readiness
     print("⏳ Waiting for Ollama server to respond...")
     for attempts in range(30):
         try:
@@ -66,7 +81,7 @@ def setup_environment():
         except requests.exceptions.ConnectionError:
             time.sleep(1)
 
-    print("❌ Error: Ollama server not found. Please ensure it is running.")
+    print("❌ Error: Ollama server failed to start.")
     sys.exit(1)
 
 def setup_model(model_name):
@@ -97,7 +112,7 @@ def get_user_model_choice():
     return models.get(choice, choice)
 
 if __name__ == "__main__":
-    # 0. Setup Environment (Installs dependencies + Ollama & starts server)
+    # 0. Setup Environment (Detects Colab, installs, and starts background server)
     setup_environment()
     
     # 1. Select and Install Model
