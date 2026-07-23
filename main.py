@@ -2,6 +2,8 @@ import sys
 import subprocess
 import requests
 import time
+import os
+import threading
 
 # Importing your modular components
 from extractor import run_extraction
@@ -22,28 +24,33 @@ def run_command(command):
     else:
         subprocess.run(command, shell=True, check=True)
 
+def start_ollama_background():
+    """Helper function to run Ollama inside a background daemon thread."""
+    # Run Ollama serve directly using absolute binary path or standard command
+    ollama_path = "/usr/local/bin/ollama" if os.path.exists("/usr/local/bin/ollama") else "ollama"
+    subprocess.Popen([ollama_path, "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 def setup_environment():
-    """Verifies Ollama is running and handles Colab startup with active retry polling."""
+    """Verifies Ollama is running and handles Colab startup using threading."""
     print("--- 🚀 Initializing Refactoring Pipeline ---")
     
     if is_colab():
         print("🌍 Detected Google Colab environment. Setting up Ollama...")
         
-        # 1. Install Ollama if binary is not installed
-        try:
-            subprocess.run("command -v ollama", shell=True, check=True, stdout=subprocess.DEVNULL)
-            print("✅ Ollama binary is ready.")
-        except subprocess.CalledProcessError:
+        # 1. Install Ollama binary if it isn't available
+        ollama_bin = "/usr/local/bin/ollama"
+        if not os.path.exists(ollama_bin):
             print("📥 Installing Ollama binary...")
             subprocess.run("curl -fsSL https://ollama.com/install.sh | sh", shell=True, check=True)
             
-        # 2. Start Ollama in background via Popen (reliable in Colab)
+        # 2. Start Ollama in background using Python Threading
         print("⚙️ Spawning background Ollama process...")
-        subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        thread = threading.Thread(target=start_ollama_background, daemon=True)
+        thread.start()
 
-    # 3. Poll Ollama server until ready (up to 20 seconds)
+    # 3. Poll Ollama server until ready (up to 25 seconds)
     print("⏳ Waiting for Ollama server to respond...")
-    for attempts in range(20):
+    for attempts in range(25):
         try:
             response = requests.get("http://localhost:11434")
             if response.status_code == 200:
@@ -83,7 +90,7 @@ def get_user_model_choice():
     return models.get(choice, choice)
 
 if __name__ == "__main__":
-    # 0. Setup Environment (Installs & starts Ollama background server)
+    # 0. Setup Environment
     setup_environment()
     
     # 1. Select and Install Model
