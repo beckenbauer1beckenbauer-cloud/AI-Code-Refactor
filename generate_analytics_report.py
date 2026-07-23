@@ -1,69 +1,61 @@
 import json
-import matplotlib.pyplot as plt
-import numpy as np
+import os
 from engine import refactor_code
 
-def generate_analytics_report(metrics_old, metrics_new, model_name):
+def run_comparative_analytics(model_name="llama3.2:3b", input_file="final_dataset_validated.json", report_file="analytics_report.md"):
     """
-    Sends metrics to the selected LLM to generate a comparative professional report.
+    Generates comparative metrics and delegates AI quality summary to engine.py.
     """
-    prompt = f"""
-    You are a Senior Python Software Quality Analyst.
-    Analyze the following metrics comparing a Legacy Python Codebase to its Refactored version.
+    print("\n📊 Starting Comparative Analytics...")
     
-    Metrics:
-    - Legacy Avg Docstring Length: {metrics_old['avg_docstring_len']}
-    - Refactored Avg Docstring Length: {metrics_new['avg_docstring_len']}
-    - Legacy Type Hint Coverage: {metrics_old['type_hint_pct']}%
-    - Refactored Type Hint Coverage: {metrics_new['type_hint_pct']}%
+    if not os.path.exists(input_file):
+        print(f"❌ Cannot generate report: '{input_file}' not found.")
+        return
 
-    Generate a brief, professional summary of quality improvements.
-    """
+    with open(input_file, "r") as f:
+        data = json.load(f)
 
-    # Use the shared engine instead of a hardcoded URL
-    result = refactor_code("AnalyticsReport", prompt, model_name=model_name)
-    
-    if result:
-        return result.get('refactored_code', "Report generation failed.")
-    return "Error generating report from the engine."
+    total_functions = len(data)
+    verified_count = sum(1 for item in data if item.get("status") == "verified")
+    fixed_count = sum(1 for item in data if item.get("status") == "fixed")
+    failed_count = sum(1 for item in data if "error" in item.get("status", "") or item.get("status") == "Engine failed")
 
-def run_comparative_analytics(model_name, old_file="final_dataset.json", new_file="final_dataset_validated.json"):
-    print("📊 Starting Comparative Analytics...")
+    print("\n🤖 Generating AI Quality Report...")
+    prompt_summary = (
+        f"Out of {total_functions} Python functions refactored by {model_name}:\n"
+        f"- {verified_count} compiled cleanly on the first try.\n"
+        f"- {fixed_count} required AI self-healing repairs to fix syntax.\n"
+        f"- {failed_count} failed refactoring/validation.\n"
+        "Provide a concise, 2-paragraph summary on the code quality, reliability, and refactoring performance."
+    )
 
-    try:
-        with open(old_file, "r") as f:
-            old_data = json.load(f)
-        with open(new_file, "r") as f:
-            new_data = json.load(f)
+    # Route through engine.py to avoid broken local requests call
+    ai_response = refactor_code("AnalyticsReport", prompt_summary, model_name=model_name)
+    summary_text = ai_response.get("explanation") or ai_response.get("refactored_code") if ai_response else "Summary generation unavailable."
 
-        def calculate_metrics(dataset):
-            total_funcs = len(dataset)
-            if total_funcs == 0:
-                return {'avg_docstring_len': 0, 'type_hint_pct': 0}
+    report_content = f"""# 📈 AI Code Refactoring & Quality Report
 
-            total_doc_len = 0
-            funcs_with_hints = 0
-            for entry in dataset:
-                docstring = entry.get('explanation', '')
-                total_doc_len += len(docstring)
-                code = entry.get('refactored_code', '')
-                if '->' in code or (':' in code and '=' not in code and 'def' in code):
-                    funcs_with_hints += 1
-            return {
-                'avg_docstring_len': round(total_doc_len / total_funcs, 2),
-                'type_hint_pct': round((funcs_with_hints / total_funcs) * 100, 2)
-            }
+**Model Evaluated:** `{model_name}`  
+**Total Functions Processed:** `{total_functions}`  
 
-        metrics_old = calculate_metrics(old_data)
-        metrics_new = calculate_metrics(new_data)
+---
 
-        # Plotting logic remains here (omitted for brevity, keep your original plot logic)
-        # ... [Plotting code same as before] ...
+## 📊 Performance Metrics
 
-        print("\n🤖 Generating AI Quality Report...")
-        report = generate_analytics_report(metrics_old, metrics_new, model_name)
-        print("\n" + "="*40 + "\n🐍 SENIOR ANALYST REPORT 🐍\n" + "="*40)
-        print(report)
+| Metric | Count | Percentage |
+|---|---|---|
+| **Verified (1st Attempt)** | {verified_count} | {(verified_count/total_functions)*100:.1f}% |
+| **Self-Healed (AI Fixed)** | {fixed_count} | {(fixed_count/total_functions)*100:.1f}% |
+| **Failed / Skipped** | {failed_count} | {(failed_count/total_functions)*100:.1f}% |
 
-    except FileNotFoundError as e:
-        print(f"⚠️ Error: {e}")
+---
+
+## 📝 Executive AI Summary
+
+{summary_text}
+"""
+
+    with open(report_file, "w") as f:
+        f.write(report_content)
+
+    print(f"✅ Analytics report saved to '{report_file}'.")
