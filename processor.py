@@ -4,7 +4,7 @@ from engine import refactor_code
 
 def process_and_save_dataset(functions_list, model_name="llama3.2:3b", output_file="final_dataset.json"):
     """
-    Processes all extracted functions through the LLM engine and saves output incrementally.
+    Processes all extracted functions using the refactor engine and saves incrementally.
     """
     print(f"🚀 Starting full dataset processing of {len(functions_list)} functions using {model_name}...")
     dataset = []
