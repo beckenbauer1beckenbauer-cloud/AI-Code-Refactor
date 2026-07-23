@@ -2,6 +2,19 @@ import requests
 import json
 import re
 
+def sanitize_url(raw_url):
+    """
+    Strips brackets, markdown formatting, spaces, and quotes from a URL string
+    so Python requests never receives illegal schemes like '[http://...]'.
+    """
+    if not isinstance(raw_url, str):
+        raw_url = str(raw_url)
+    # Extract clean http(s) URL if wrapped in brackets, parens, or markdown
+    match = re.search(r"https?://[^\s\]\)\'\"]+", raw_url)
+    if match:
+        return match.group(0)
+    return "http://127.0.0.1:11434/api/generate"
+
 def clean_json_response(raw_text):
     """
     Cleans raw LLM outputs by removing markdown code fences and extracting clean JSON.
@@ -9,7 +22,6 @@ def clean_json_response(raw_text):
     if not isinstance(raw_text, str):
         return {}
         
-    # Strip markdown code fences if present
     raw_text = re.sub(r"^```json\s*", "", raw_text.strip(), flags=re.MULTILINE)
     raw_text = re.sub(r"^```python\s*", "", raw_text.strip(), flags=re.MULTILINE)
     raw_text = re.sub(r"^```\s*", "", raw_text.strip(), flags=re.MULTILINE)
@@ -18,7 +30,6 @@ def clean_json_response(raw_text):
     try:
         return json.loads(raw_text)
     except json.JSONDecodeError:
-        # Fallback regex search for JSON object inside extra text
         json_match = re.search(r"\{.*\}", raw_text, re.DOTALL)
         if json_match:
             try:
@@ -27,12 +38,12 @@ def clean_json_response(raw_text):
                 pass
     return {}
 
-def refactor_code(name, code, model_name="llama3.2:3b"):
+def refactor_code(name, code, model_name="llama3.2:3b", target_url="[http://127.0.0.1:11434/api/generate](http://127.0.0.1:11434/api/generate)"):
     """
     Sends raw function code to Ollama and returns sanitized JSON.
     """
-    # Clean plain string URL — NO markdown brackets or links allowed!
-    url = "[http://127.0.0.1:11434/api/generate](http://127.0.0.1:11434/api/generate)"
+    # Sanitize URL to force removal of any surrounding brackets or markdown
+    url = sanitize_url(target_url)
 
     system_prompt = (
         "You are an expert Python engineer. Refactor the provided function to: "
@@ -57,7 +68,6 @@ def refactor_code(name, code, model_name="llama3.2:3b"):
             raw_response = data.get('response', '')
             parsed = clean_json_response(raw_response)
             
-            # Ensure refactored_code is strictly a string
             if "refactored_code" in parsed and not isinstance(parsed["refactored_code"], str):
                 parsed["refactored_code"] = str(parsed["refactored_code"])
                 
