@@ -8,7 +8,7 @@ from extractor import run_extraction
 from processor import process_and_save_dataset
 from plotting import generate_plot
 from refactor_and_validate import run_self_healing_pipeline
-from analytics import run_comparative_analytics
+from generate_analytics_report import run_comparative_analytics
 
 def is_colab():
     """Detects if the code is running in a Google Colab environment."""
