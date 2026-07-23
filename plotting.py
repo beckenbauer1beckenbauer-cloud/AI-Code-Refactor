@@ -2,20 +2,19 @@ import json
 import os
 import matplotlib.pyplot as plt
 
-def generate_plot(dataset_file="final_dataset_validated.json", output_plot="refactoring_metrics.png"):
+def generate_line_count_plot(dataset_file="final_dataset_validated.json", output_plot="line_count_comparison.png"):
     """
-    Generates line count comparison plot for original vs refactored functions.
-    Handles flexible schema keys gracefully.
+    Generates Chart 1: Line count comparison (Original vs Refactored).
     """
     if not os.path.exists(dataset_file):
-        print(f"⚠️ Cannot generate plot: '{dataset_file}' missing.")
+        print(f"⚠️ Cannot generate line count plot: '{dataset_file}' missing.")
         return
 
     with open(dataset_file, "r") as f:
         data = json.load(f)
 
     if not data:
-        print("⚠️ Plotting skipped: Dataset is empty.")
+        print("⚠️ Line count plotting skipped: Dataset is empty.")
         return
 
     names = []
@@ -23,7 +22,6 @@ def generate_plot(dataset_file="final_dataset_validated.json", output_plot="refa
     refact_lines = []
 
     for item in data:
-        # Flexible key extraction (handles 'function_name' vs 'function')
         name = item.get("function_name") or item.get("function") or "Unknown"
         orig_code = item.get("original_code", "")
         refact_code = item.get("refactored_code", "")
@@ -39,10 +37,52 @@ def generate_plot(dataset_file="final_dataset_validated.json", output_plot="refa
     
     plt.xticks(x, names, rotation=45, ha="right")
     plt.ylabel("Line Count")
-    plt.title("Code Line Count Comparison (Original vs Refactored)")
+    plt.title("Code Line Count Comparison")
     plt.legend()
     plt.tight_layout()
 
     plt.savefig(output_plot)
     plt.close()
-    print(f"📊 Visualization graph saved to '{output_plot}'.")
+    print(f"📊 Chart 1 saved: '{output_plot}'.")
+
+
+def generate_status_plot(dataset_file="final_dataset_validated.json", output_plot="refactoring_status_distribution.png"):
+    """
+    Generates Chart 2: Status distribution (Verified vs Fixed vs Failed).
+    """
+    if not os.path.exists(dataset_file):
+        print(f"⚠️ Cannot generate status plot: '{dataset_file}' missing.")
+        return
+
+    with open(dataset_file, "r") as f:
+        data = json.load(f)
+
+    if not data:
+        return
+
+    statuses = [item.get("status", "unknown") for item in data]
+    verified = statuses.count("verified")
+    fixed = statuses.count("fixed")
+    failed = len(statuses) - verified - fixed
+
+    labels = ["Verified (1st Try)", "Self-Healed (Fixed)", "Failed/Skipped"]
+    counts = [verified, fixed, failed]
+
+    plt.figure(figsize=(7, 5))
+    colors = ["#2ecc71", "#3498db", "#e74c3c"]
+    plt.bar(labels, counts, color=colors)
+    plt.ylabel("Count")
+    plt.title("Refactoring Status Distribution")
+    plt.tight_layout()
+
+    plt.savefig(output_plot)
+    plt.close()
+    print(f"📊 Chart 2 saved: '{output_plot}'.")
+
+
+def generate_plot(dataset_file="final_dataset_validated.json"):
+    """
+    Helper function to trigger both plots at once.
+    """
+    generate_line_count_plot(dataset_file)
+    generate_status_plot(dataset_file)
