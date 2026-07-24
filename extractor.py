@@ -1,31 +1,52 @@
 import inspect
+import pkgutil
+import importlib
 
-def extract_functions_from_library(library):
+def extract_functions_deep(module, max_functions=10):
     """
-    Extracts all functions from a given library and returns a list
-    containing tuples of (function_name, source_code).
+    Recursively inspects top-level module and submodules to find pure Python functions with source code.
     """
-    extracted_data = []
+    functions_list = []
+    seen_names = set()
 
-    # Iterate through all members of the library
-    for name, obj in inspect.getmembers(library):
-        # We only want to process actual functions
-        if inspect.isfunction(obj):
+    def search_module(mod, max_depth=2, current_depth=0):
+        if len(functions_list) >= max_functions or current_depth > max_depth:
+            return
+
+        try:
+            members = inspect.getmembers(mod)
+        except Exception:
+            return
+
+        for name, obj in members:
+            if len(functions_list) >= max_functions:
+                break
+
+            if inspect.isfunction(obj) and not name.startswith("_"):
+                full_name = f"{mod.__name__}.{name}"
+                if full_name not in seen_names:
+                    try:
+                        source = inspect.getsource(obj)
+                        if len(source.strip().splitlines()) > 3:  # Exclude trivial functions
+                            functions_list.append((name, source))
+                            seen_names.add(full_name)
+                    except (TypeError, OSError):
+                        pass
+
+        if len(functions_list) < max_functions and hasattr(mod, "__path__"):
             try:
-                # Attempt to get the source code of the function
-                source = inspect.getsource(obj)
-                extracted_data.append((name, source))
-            except (TypeError, OSError):
-                # Skip built-ins or functions without source code
-                continue
+                for _, subname, _ in pkgutil.walk_packages(mod.__path__, mod.__name__ + "."):
+                    if len(functions_list) >= max_functions:
+                        break
+                    if ".tests" in subname or "._" in subname:
+                        continue
+                    try:
+                        submod = importlib.import_module(subname)
+                        search_module(submod, max_depth, current_depth + 1)
+                    except Exception:
+                        continue
+            except Exception:
+                pass
 
-    return extracted_data
-
-def run_extraction(target_library):
-    """
-    Main entry point for this module to be called by the pipeline.
-    """
-    print(f"🔍 Extracting functions from '{target_library.__name__}'...")
-    functions = extract_functions_from_library(target_library)
-    print(f"✅ Successfully extracted {len(functions)} functions.")
-    return functions
+    search_module(module)
+    return functions_list
