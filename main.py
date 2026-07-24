@@ -1,166 +1,183 @@
 import sys
 import subprocess
-import requests
-import time
-import os
-import threading
 import importlib
+import inspect
+import pkgutil
+import json
+import re
 
-# Importing your modular components
-from extractor import run_extraction
-from processor import process_and_save_dataset
-from plotting import generate_plot
+# Import pipeline components
+from engine import refactor_code
 from refactor_and_validate import run_self_healing_pipeline
+from plotting import generate_plot
 from generate_analytics_report import run_comparative_analytics
 
-def is_colab():
-    """Reliably detects Google Colab environment."""
-    if "COLAB_RELEASE_TAG" in os.environ or "COLAB_GPU" in os.environ:
-        return True
+def resolve_library_with_llm(user_input, model_name="qwen2.5:7b"):
+    """
+    Asks the LLM directly to map ANY package name in the world to its exact 
+    PyPI install name and Python import module name.
+    """
+    print(f"🤖 Asking LLM to resolve package metadata for '{user_input}'...")
+    
+    prompt = (
+        f"The user wants to use the Python library: '{user_input}'.\n"
+        "Tell me the exact PyPI package name used for 'pip install' and the exact primary module name used for 'import' in Python.\n"
+        "Return ONLY a JSON object with two keys: 'pip_name' and 'import_name'.\n"
+        "Examples:\n"
+        "Input: 'scikit-learn' -> {\"pip_name\": \"scikit-learn\", \"import_name\": \"sklearn\"}\n"
+        "Input: 'pillow' -> {\"pip_name\": \"Pillow\", \"import_name\": \"PIL\"}\n"
+        "Input: 'opencv' -> {\"pip_name\": \"opencv-python\", \"import_name\": \"cv2\"}\n"
+        "Do NOT include markdown formatting or explanations."
+    )
+
+    response = refactor_code("PackageResolver", prompt, model_name=model_name)
+    
+    # Fallbacks if LLM fails
+    pip_name = user_input.strip()
+    import_name = user_input.strip().replace("-", "_")
+
+    if response and isinstance(response, dict):
+        pip_name = response.get("pip_name", pip_name)
+        import_name = response.get("import_name", import_name)
+
+    print(f"💡 LLM Resolved: pip install '{pip_name}' ➔ import '{import_name}'")
+    return pip_name, import_name
+
+
+def auto_install_and_import(pip_name, import_name):
+    """
+    Imports the module. If missing, automatically runs 'pip install <pip_name>'
+    and re-imports without stopping the program.
+    """
+    # 1. First attempt to import directly
     try:
-        import google.colab
-        return True
+        module = importlib.import_module(import_name)
+        print(f"✅ Successfully imported '{import_name}'.")
+        return module
     except ImportError:
-        return os.path.exists("/content")
+        print(f"📦 Module '{import_name}' not found. Auto-installing '{pip_name}' via pip...")
 
-def run_command(command):
-    """Executes shell commands across Colab and local setups."""
-    if is_colab():
-        from IPython import get_ipython
-        if get_ipython():
-            get_ipython().system(command)
-            return
-    subprocess.run(command, shell=True, check=True)
-
-def start_ollama_background():
-    """Runs Ollama serve daemon in background."""
-    ollama_path = "/usr/local/bin/ollama" if os.path.exists("/usr/local/bin/ollama") else "ollama"
-    env = os.environ.copy()
-    env["OLLAMA_HOST"] = "127.0.0.1:11434"
-    subprocess.Popen([ollama_path, "serve"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-def setup_environment():
-    """Ensures dependencies and Ollama background service are ready."""
-    print("--- 🚀 Initializing Refactoring Pipeline ---")
-    
-    in_colab = is_colab()
-    
+    # 2. Run pip install dynamically
     try:
-        if requests.get("http://127.0.0.1:11434").status_code == 200:
-            print("✅ Ollama server is already active.")
-            return
-    except requests.exceptions.ConnectionError:
-        pass
-
-    print(f"🌍 Environment detected: {'Google Colab' if in_colab else 'Local/Server'}")
-    
-    if in_colab:
-        print("🔧 Installing system dependencies (pciutils, zstd)...")
-        subprocess.run("sudo apt-get update -qq && sudo apt-get install -y -qq pciutils zstd", shell=True, check=True)
-
-    ollama_bin = "/usr/local/bin/ollama"
-    if not os.path.exists(ollama_bin) and subprocess.run("which ollama", shell=True, capture_output=True).returncode != 0:
-        print("📥 Installing Ollama binary...")
-        subprocess.run("curl -fsSL https://ollama.com/install.sh | sh", shell=True, check=True)
-
-    print("⚙️ Spawning background Ollama process...")
-    thread = threading.Thread(target=start_ollama_background, daemon=True)
-    thread.start()
-
-    print("⏳ Waiting for Ollama server to respond...")
-    for attempts in range(30):
-        try:
-            if requests.get("http://127.0.0.1:11434").status_code == 200:
-                print("✅ Ollama server is reachable and ready.")
-                return
-        except requests.exceptions.ConnectionError:
-            time.sleep(1)
-
-    print("❌ Error: Ollama server failed to launch.")
-    sys.exit(1)
-
-def setup_model(model_name):
-    """Pulls requested model if missing."""
-    print(f"\n🔍 Checking for model: {model_name}...")
-    try:
-        output = subprocess.check_output("ollama list", shell=True).decode()
-        if model_name in output:
-            print(f"✅ Model '{model_name}' is ready.")
-        else:
-            print(f"📥 Pulling model '{model_name}'... (this may take a few minutes)")
-            run_command(f"ollama pull {model_name}")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+        importlib.invalidate_caches()
+        module = importlib.import_module(import_name)
+        print(f"✅ Successfully installed and imported '{import_name}'.")
+        return module
     except Exception as e:
-        print(f"⚠️ Could not pull model automatically: {e}")
+        print(f"❌ Failed to auto-install '{pip_name}': {e}")
+        return None
 
-def get_user_model_choice():
-    """Prompt user to select an LLM model."""
-    models = {
-        "1": "llama3.2:3b",
-        "2": "qwen2.5:7b",
-        "3": "gemma2"
-    }
-    print("\nSelect an AI Model:")
-    for key, model in models.items():
-        print(f"{key}. {model}")
-    
-    choice = input("Enter choice (1-3) or type custom model name (e.g., kimi): ").strip()
-    return models.get(choice, choice)
 
-def get_user_library_choice():
-    """Allows user to specify which library to extract code from."""
-    print("\nSelect a Target Library to Refactor:")
-    print("1. requests")
-    print("2. urllib.request")
-    print("3. json")
-    print("4. Custom Library (type name)")
-    
-    choice = input("Enter choice (1-4 or name): ").strip()
-    
-    lib_mapping = {
-        "1": "requests",
-        "2": "urllib.request",
-        "3": "json"
-    }
-    
-    lib_name = lib_mapping.get(choice, choice)
-    
-    try:
-        print(f"📦 Importing target library '{lib_name}'...")
-        target_lib = importlib.import_module(lib_name)
-        return target_lib
-    except ImportError:
-        print(f"⚠️ Library '{lib_name}' is not installed. Falling back to default 'requests'.")
-        import requests as fallback_lib
-        return fallback_lib
+def extract_functions_deep(module, max_functions=10):
+    """
+    Recursively inspects top-level module and submodules to find pure Python functions 
+    with extractable source code (handles complex packages like sklearn, scipy, pandas).
+    """
+    functions_list = []
+    seen_names = set()
+
+    def search_module(mod, max_depth=2, current_depth=0):
+        if len(functions_list) >= max_functions or current_depth > max_depth:
+            return
+
+        # Inspect members of current module
+        try:
+            members = inspect.getmembers(mod)
+        except Exception:
+            return
+
+        for name, obj in members:
+            if len(functions_list) >= max_functions:
+                break
+
+            # Extract pure Python functions
+            if inspect.isfunction(obj) and not name.startswith("_"):
+                full_name = f"{mod.__name__}.{name}"
+                if full_name not in seen_names:
+                    try:
+                        source = inspect.getsource(obj)
+                        if len(source.strip().splitlines()) > 3:  # Skip trivial 1-liners
+                            functions_list.append((name, source))
+                            seen_names.add(full_name)
+                    except (TypeError, OSError):
+                        pass
+
+        # If we need more functions, explore submodules
+        if len(functions_list) < max_functions and hasattr(mod, "__path__"):
+            try:
+                for _, subname, ispkg in pkgutil.walk_packages(mod.__path__, mod.__name__ + "."):
+                    if len(functions_list) >= max_functions:
+                        break
+                    # Avoid private or test submodules
+                    if ".tests" in subname or "._" in subname:
+                        continue
+                    try:
+                        submod = importlib.import_module(subname)
+                        search_module(submod, max_depth, current_depth + 1)
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+    search_module(module)
+    return functions_list
+
+
+def main():
+    print("=" * 60)
+    print("🤖 Universal AI Refactoring Pipeline (All Libraries)")
+    print("=" * 60)
+
+    target_input = input("Enter ANY Python library in the world (e.g. scikit-learn, httpx, django, scipy, sympy): ").strip()
+    if not target_input:
+        target_input = "requests"
+
+    model_name = input("Enter Ollama model name [default: qwen2.5:7b]: ").strip()
+    if not model_name:
+        model_name = "qwen2.5:7b"
+
+    # Step 1: Ask LLM to resolve pip name and import module name
+    pip_name, import_name = resolve_library_with_llm(target_input, model_name=model_name)
+
+    # Step 2: Auto-install & Import
+    module = auto_install_and_import(pip_name, import_name)
+    if not module:
+        print(f"⚠️ Could not load library '{target_input}'. Falling back to 'requests'.")
+        import requests
+        module = requests
+        import_name = "requests"
+
+    # Step 3: Deep Function Extraction across root & submodules
+    print(f"\n⚙️ Extracting functions from '{import_name}' (including submodules)...")
+    functions = extract_functions_deep(module, max_functions=10)
+
+    if not functions:
+        print(f"⚠️ No pure Python functions with source code found in '{import_name}'.")
+        return
+
+    print(f"✅ Successfully extracted {len(functions)} functions from '{import_name}':")
+    for fname, _ in functions:
+        print(f"   • {fname}")
+
+    # Step 4: Run Refactoring & Self-Healing Pipeline
+    validated_file = f"dataset_{import_name}_validated.json"
+    print("\n--- 🛠️ Running Refactoring & Self-Healing Pipeline ---")
+    run_self_healing_pipeline(functions, model_name=model_name, output_file=validated_file)
+
+    # Step 5: Generate Charts (Line Count & Status)
+    print("\n--- 📊 Generating Visualization Charts ---")
+    generate_plot(dataset_file=validated_file)
+
+    # Step 6: Generate AI Executive Analytics Report
+    print("\n--- 📝 Generating Executive AI Quality Report ---")
+    run_comparative_analytics(model_name=model_name, input_file=validated_file, report_file=f"report_{import_name}.md")
+
+    print(f"\n🎉 Process completed for '{import_name}'! Outputs created:")
+    print(f"   📄 Validated Dataset: {validated_file}")
+    print(f"   📊 Chart 1: line_count_comparison.png")
+    print(f"   📊 Chart 2: refactoring_status_distribution.png")
+    print(f"   📝 AI Report: report_{import_name}.md")
 
 if __name__ == "__main__":
-    # 0. Setup System Environment
-    setup_environment()
-    
-    # 1. Select Model & Library Target
-    selected_model = get_user_model_choice()
-    setup_model(selected_model)
-    
-    target_library = get_user_library_choice()
-    
-    # 2. Extract Data from Chosen Library
-    functions = run_extraction(target_library)
-    
-    if not functions:
-        print(f"⚠️ No inspectable Python functions were found in target library. Exiting.")
-        sys.exit(0)
-    
-    # 3. Execution Pipeline
-    print("\n--- 🛠️ Starting Refactoring Pipeline ---")
-    
-    # Run Refactoring
-    process_and_save_dataset(functions, model_name=selected_model)
-    
-    # Run Validation & Self-Healing Loop
-    run_self_healing_pipeline(functions, model_name=selected_model)
-    
-    # Run Analytics & Plotting
-    generate_plot("final_dataset_validated.json")
-    run_comparative_analytics(model_name=selected_model)
-    
-    print("\n✅ Pipeline complete. All outputs generated successfully.")
+    main()
