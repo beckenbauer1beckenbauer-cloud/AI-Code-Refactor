@@ -5,7 +5,7 @@ import time
 import subprocess
 import urllib.request
 
-# Pin working directory to avoid directory corruption
+# Force main script execution context
 BASE_DIR = "/content" if os.path.exists("/content") else "/tmp"
 os.chdir(BASE_DIR)
 
@@ -16,8 +16,10 @@ from plotting import generate_plot
 from generate_analytics_report import run_comparative_analytics
 
 def ensure_ollama_engine_ready():
-    """Verifies that the Ollama engine background service is running."""
+    """Verifies Ollama is healthy; restarts it from root (/) if dead or broken."""
     url = "http://127.0.0.1:11434/api/version"
+    
+    # Try reaching server
     try:
         urllib.request.urlopen(url, timeout=3)
         return
@@ -28,41 +30,50 @@ def ensure_ollama_engine_ready():
         print("❌ Ollama engine binary not found. Please run 'bash setup.sh' first.")
         sys.exit(1)
 
-    print("⚡ Starting Ollama engine service...")
+    print("⚡ Starting background Ollama daemon anchored at '/'...")
+    # Kill any zombie instances first
+    subprocess.run(["pkill", "-f", "ollama serve"], stderr=subprocess.DEVNULL)
+    subprocess.run(["pkill", "-f", "llama-server"], stderr=subprocess.DEVNULL)
+    time.sleep(1)
+
+    # Launch daemon from root directory '/'
     subprocess.Popen(
         ["ollama", "serve"],
-        cwd=BASE_DIR,
+        cwd="/",
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
     )
-    time.sleep(3)
+
+    for _ in range(10):
+        try:
+            urllib.request.urlopen(url, timeout=2)
+            print("✅ Ollama engine started successfully.")
+            return
+        except Exception:
+            time.sleep(2)
+
+    print("❌ Failed to launch Ollama server.")
+    sys.exit(1)
 
 def install_model_first(model_name: str):
-    """
-    EXECUTABLE INSTALLATION PHASE:
-    Runs the exact command to pull/install the selected model binary 
-    and blocks all execution until installation is 100% complete.
-    """
+    """Downloads model weights with real-time output from root directory."""
     print("\n" + "=" * 60)
     print(f"📥 PHASE 1: INSTALLING LLM MODEL WEIGHTS ({model_name})")
     print("=" * 60)
 
-    # Check if weights exist locally
     try:
-        res = subprocess.run(["ollama", "list"], capture_output=True, text=True, cwd=BASE_DIR)
+        res = subprocess.run(["ollama", "list"], capture_output=True, text=True, cwd="/")
         if model_name in res.stdout:
-            print(f"✅ Model '{model_name}' is already installed on local disk.")
+            print(f"✅ Model '{model_name}' is ready on local disk.")
             return
     except Exception:
         pass
 
-    print(f"⌛ Executing install command: 'ollama pull {model_name}'...")
-    print("⏳ Please wait while model layers are downloaded into Ollama...\n")
+    print(f"⌛ Executing: 'ollama pull {model_name}'...\n")
 
-    # Run blocking install command and stream live output
     process = subprocess.Popen(
         ["ollama", "pull", model_name],
-        cwd=BASE_DIR,
+        cwd="/",
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True
@@ -75,13 +86,12 @@ def install_model_first(model_name: str):
     process.wait()
 
     if process.returncode == 0:
-        print(f"\n✅ Model '{model_name}' installation finished successfully!")
+        print(f"\n✅ Model '{model_name}' downloaded successfully!")
     else:
-        print(f"\n❌ Installation failed for model '{model_name}'. Exiting.")
+        print(f"\n❌ Download failed for '{model_name}'.")
         sys.exit(1)
 
 def select_model():
-    """Prompts model choice and immediately triggers installation."""
     print("\nSelect Model to Install & Execute:")
     print("1. qwen2.5:7b")
     print("2. llama3.2:3b")
@@ -98,13 +108,9 @@ def select_model():
         "4": "deepseek-r1:7b"
     }
 
-    if choice == "5":
-        selected = input("Enter custom model tag (e.g., mistral:7b): ").strip()
-        selected = selected if selected else "qwen2.5:7b"
-    else:
-        selected = models.get(choice, "qwen2.5:7b")
+    selected = models.get(choice, "qwen2.5:7b") if choice != "5" else input("Enter model tag: ").strip()
+    selected = selected if selected else "qwen2.5:7b"
 
-    # MANDATORY STEP: Download/Install model BEFORE returning
     install_model_first(selected)
     return selected
 
@@ -115,43 +121,37 @@ def main():
     print("🤖 Universal AI Refactoring Pipeline")
     print("=" * 60)
 
-    # 1. Select Library Target
     target_input = input("\nEnter Python library name (e.g., scikit-learn, httpx, scipy): ").strip()
     if not target_input:
         target_input = "scikit-learn"
 
-    # 2. Select & Install Model
     model_name = select_model()
 
-    # 3. Resolve & Install Target Python Package
     print("\n" + "=" * 60)
     print(f"📦 PHASE 2: RESOLVING & INSPECTING LIBRARY ('{target_input}')")
     print("=" * 60)
     module, pip_name, import_name = resolve_and_install_package(target_input, model_name=model_name)
     if not module:
-        print(f"❌ Could not resolve or import '{target_input}'. Halting.")
+        print(f"❌ Could not resolve '{target_input}'. Halting.")
         return
 
-    # 4. Extract Source Code
     print(f"\n⚙️ Extracting target source code functions from '{import_name}'...")
     functions = extract_functions_deep(module, max_functions=10)
 
     if not functions:
-        print(f"⚠️ No Python source code functions found for '{import_name}'.")
+        print(f"⚠️ No source code functions found for '{import_name}'.")
         return
 
     print(f"✅ Extracted {len(functions)} functions from '{import_name}':")
     for fname, _ in functions:
         print(f"   • {fname}")
 
-    # 5. Refactor & Self-Heal
     print("\n" + "=" * 60)
     print(f"🚀 PHASE 3: REFACTORING & AST VALIDATION ({model_name})")
     print("=" * 60)
     validated_file = os.path.join(BASE_DIR, f"dataset_{import_name}_validated.json")
     run_self_healing_pipeline(functions, model_name=model_name, output_file=validated_file)
 
-    # 6. Generate Analytics & Reports
     print("\n" + "=" * 60)
     print("📊 PHASE 4: GENERATING ANALYTICS & EXECUTIVE REPORT")
     print("=" * 60)
@@ -160,7 +160,7 @@ def main():
     report_file = os.path.join(BASE_DIR, f"report_{import_name}.md")
     run_comparative_analytics(model_name=model_name, input_file=validated_file, library_name=import_name, report_file=report_file)
 
-    print(f"\n🎉 Refactoring pipeline completed successfully for '{import_name}' using model '{model_name}'!")
+    print(f"\n🎉 Refactoring pipeline completed successfully for '{import_name}' using '{model_name}'!")
 
 if __name__ == "__main__":
     main()
