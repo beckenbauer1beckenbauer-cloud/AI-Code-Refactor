@@ -6,14 +6,40 @@ from extractor import extract_functions_deep
 from refactor_and_validate import run_self_healing_pipeline
 from plotting import generate_plot
 from generate_analytics_report import run_comparative_analytics
+import shutil
+import time
 
 def ensure_ollama_running():
-    """Ensures Ollama service is active before running."""
+    """Checks if Ollama is active; attempts background launch if missing."""
+    url = "http://127.0.0.1:11434/api/version"
+    
+    # Check if already running
     try:
-        urllib.request.urlopen("http://127.0.0.1:11434/api/version", timeout=3)
+        urllib.request.urlopen(url, timeout=3)
+        return
     except Exception:
-        print("⚡ Starting background Ollama process...")
-        subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        pass
+
+    # Verify executable exists before running Popen
+    if not shutil.which("ollama"):
+        print("❌ Error: 'ollama' binary is not installed on this system.")
+        print("👉 Please execute 'bash setup.sh' prior to running main.py.")
+        exit(1)
+
+    print("⚡ Starting background Ollama process...")
+    subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    # Wait for service to come online
+    for _ in range(10):
+        try:
+            urllib.request.urlopen(url, timeout=2)
+            print("✅ Ollama started successfully.")
+            return
+        except Exception:
+            time.sleep(2)
+            
+    print("❌ Failed to reach Ollama server after starting.")
+    exit(1)
 
 def select_model():
     print("\nSelect Ollama Model:")
