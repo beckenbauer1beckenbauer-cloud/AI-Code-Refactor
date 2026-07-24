@@ -1,6 +1,7 @@
 import sys
 import subprocess
 import importlib
+import os
 from engine import refactor_code
 
 # Mapping for known packages where PyPI name differs from import module name
@@ -24,8 +25,8 @@ KNOWN_PACKAGES = {
 
 def resolve_and_install_package(user_input, model_name="qwen2.5:7b"):
     """
-    Translates ANY package name in the world to its PyPI install name and Python import name.
-    Strictly target-bound — never falls back to 'requests'.
+    Translates ANY package name to its PyPI install name and Python import name.
+    Runs pip in /tmp to prevent invalidating Ollama's current working directory.
     """
     clean_input = user_input.strip().lower()
 
@@ -49,7 +50,7 @@ def resolve_and_install_package(user_input, model_name="qwen2.5:7b"):
 
     print(f"💡 Target Resolved: pip install '{pip_name}' ➔ import '{import_name}'")
 
-    # 2. Import or Auto-Install
+    # 2. Import or Auto-Install safely without corrupting cwd
     try:
         module = importlib.import_module(import_name)
         print(f"✅ Successfully imported '{import_name}'.")
@@ -58,7 +59,11 @@ def resolve_and_install_package(user_input, model_name="qwen2.5:7b"):
         print(f"📦 Auto-installing '{pip_name}' via pip...")
 
     try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+        # Run pip install strictly inside /tmp so process working directory is preserved
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", pip_name],
+            cwd="/tmp"
+        )
         importlib.invalidate_caches()
         module = importlib.import_module(import_name)
         print(f"✅ Successfully installed and imported '{import_name}'.")
