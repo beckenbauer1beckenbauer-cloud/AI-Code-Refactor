@@ -3,3 +3,5 @@ pip install -r requirements.txt
 
 # FIX 7: Run the main program
 python main.py
+
+!bash setup.sh
