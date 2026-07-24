@@ -3,22 +3,16 @@ import json
 import re
 
 def sanitize_url(raw_url):
-    """
-    Strips brackets, markdown formatting, spaces, and quotes from a URL string
-    so Python requests never receives illegal schemes like '[http://...]'.
-    """
+    """Strips brackets, parens, and markdown formatting from URL strings."""
     if not isinstance(raw_url, str):
         raw_url = str(raw_url)
-    # Extract clean http(s) URL if wrapped in brackets, parens, or markdown
     match = re.search(r"https?://[^\s\]\)\'\"]+", raw_url)
     if match:
         return match.group(0)
     return "http://127.0.0.1:11434/api/generate"
 
 def clean_json_response(raw_text):
-    """
-    Cleans raw LLM outputs by removing markdown code fences and extracting clean JSON.
-    """
+    """Extracts clean JSON from raw LLM output."""
     if not isinstance(raw_text, str):
         return {}
         
@@ -38,11 +32,8 @@ def clean_json_response(raw_text):
                 pass
     return {}
 
-def refactor_code(name, code, model_name="llama3.2:3b", target_url="[http://127.0.0.1:11434/api/generate](http://127.0.0.1:11434/api/generate)"):
-    """
-    Sends raw function code to Ollama and returns sanitized JSON.
-    """
-    # Sanitize URL to force removal of any surrounding brackets or markdown
+def refactor_code(name, code, model_name="qwen2.5:7b", target_url="[http://127.0.0.1:11434/api/generate](http://127.0.0.1:11434/api/generate)"):
+    """Sends prompt to Ollama and returns sanitized JSON."""
     url = sanitize_url(target_url)
 
     system_prompt = (
@@ -62,7 +53,7 @@ def refactor_code(name, code, model_name="llama3.2:3b", target_url="[http://127.
     }
 
     try:
-        response = requests.post(url, json=payload, timeout=90)
+        response = requests.post(url, json=payload, timeout=120)
         if response.status_code == 200:
             data = response.json()
             raw_response = data.get('response', '')
