@@ -1,5 +1,11 @@
 import sys
 import os
+
+# Pinned base directory fix BEFORE imports
+BASE_DIR = "/content" if os.path.exists("/content") else "/tmp"
+os.chdir(BASE_DIR)
+os.environ["OLLAMA_MODELS"] = os.path.expanduser("~/.ollama/models")
+
 import shutil
 import time
 import subprocess
@@ -11,7 +17,7 @@ from plotting import generate_plot
 from generate_analytics_report import run_comparative_analytics
 
 def ensure_ollama_running():
-    """Ensures Ollama service is active and running from a valid base directory."""
+    """Ensures Ollama service is active and pinned to BASE_DIR."""
     url = "http://127.0.0.1:11434/api/version"
     try:
         urllib.request.urlopen(url, timeout=3)
@@ -24,12 +30,15 @@ def ensure_ollama_running():
         print("👉 Please execute 'bash setup.sh' prior to running main.py.")
         sys.exit(1)
 
-    print("⚡ Starting background Ollama process from root directory...")
-    # Launch in /content or /root to prevent 'cannot get current path' error
-    working_dir = "/content" if os.path.exists("/content") else "/root"
+    print(f"⚡ Starting background Ollama process from {BASE_DIR}...")
+    
+    # Environment copy with absolute paths
+    env = os.environ.copy()
+    
     subprocess.Popen(
         ["ollama", "serve"],
-        cwd=working_dir,
+        cwd=BASE_DIR,
+        env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
     )
@@ -49,10 +58,20 @@ def ensure_model_installed(model_name):
     """Verifies model exists locally; downloads it dynamically if missing."""
     print(f"🔍 Checking if model '{model_name}' is downloaded...")
     try:
-        res = subprocess.run(["ollama", "list"], capture_output=True, text=True, check=True)
+        res = subprocess.run(
+            ["ollama", "list"], 
+            capture_output=True, 
+            text=True, 
+            check=True, 
+            cwd=BASE_DIR
+        )
         if model_name not in res.stdout:
-            print(f"📥 Model '{model_name}' not found locally. Pulling model now (please wait)...")
-            subprocess.run(["ollama", "pull", model_name], check=True)
+            print(f"📥 Model '{model_name}' not found locally. Pulling '{model_name}' now...")
+            subprocess.run(
+                ["ollama", "pull", model_name], 
+                check=True, 
+                cwd=BASE_DIR
+            )
             print(f"✅ Model '{model_name}' successfully downloaded!")
         else:
             print(f"✅ Model '{model_name}' is ready.")
@@ -73,6 +92,8 @@ def select_model():
     return selected
 
 def main():
+    # Make sure process is anchored in BASE_DIR
+    os.chdir(BASE_DIR)
     ensure_ollama_running()
 
     print("=" * 60)
@@ -91,6 +112,9 @@ def main():
         print(f"❌ Pipeline halted: Unable to process target '{target_input}'.")
         return
 
+    # Reset directory after package installation to keep Ollama valid
+    os.chdir(BASE_DIR)
+
     # Step 2: Extract Source Code
     print(f"\n⚙️ Extracting functions from '{import_name}'...")
     functions = extract_functions_deep(module, max_functions=10)
@@ -104,14 +128,14 @@ def main():
         print(f"   • {fname}")
 
     # Step 3: Refactor & Validate
-    validated_file = f"dataset_{import_name}_validated.json"
+    validated_file = os.path.join(BASE_DIR, f"dataset_{import_name}_validated.json")
     run_self_healing_pipeline(functions, model_name=model_name, output_file=validated_file)
 
     # Step 4: Charts
     generate_plot(dataset_file=validated_file, library_name=import_name)
 
     # Step 5: Report
-    report_file = f"report_{import_name}.md"
+    report_file = os.path.join(BASE_DIR, f"report_{import_name}.md")
     run_comparative_analytics(model_name=model_name, input_file=validated_file, library_name=import_name, report_file=report_file)
 
     print(f"\n🎉 Pipeline completed successfully for '{import_name}'!")
