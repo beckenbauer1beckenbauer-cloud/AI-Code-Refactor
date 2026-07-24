@@ -1,4 +1,7 @@
 import sys
+import os
+import shutil
+import time
 import subprocess
 import urllib.request
 from package_resolver import resolve_and_install_package
@@ -6,30 +9,31 @@ from extractor import extract_functions_deep
 from refactor_and_validate import run_self_healing_pipeline
 from plotting import generate_plot
 from generate_analytics_report import run_comparative_analytics
-import shutil
-import time
 
 def ensure_ollama_running():
-    """Checks if Ollama is active; attempts background launch if missing."""
+    """Ensures Ollama service is active and running from a valid base directory."""
     url = "http://127.0.0.1:11434/api/version"
-    
-    # Check if already running
     try:
         urllib.request.urlopen(url, timeout=3)
         return
     except Exception:
         pass
 
-    # Verify executable exists before running Popen
     if not shutil.which("ollama"):
         print("❌ Error: 'ollama' binary is not installed on this system.")
         print("👉 Please execute 'bash setup.sh' prior to running main.py.")
-        exit(1)
+        sys.exit(1)
 
-    print("⚡ Starting background Ollama process...")
-    subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    
-    # Wait for service to come online
+    print("⚡ Starting background Ollama process from root directory...")
+    # Launch in /content or /root to prevent 'cannot get current path' error
+    working_dir = "/content" if os.path.exists("/content") else "/root"
+    subprocess.Popen(
+        ["ollama", "serve"],
+        cwd=working_dir,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+
     for _ in range(10):
         try:
             urllib.request.urlopen(url, timeout=2)
@@ -37,19 +41,36 @@ def ensure_ollama_running():
             return
         except Exception:
             time.sleep(2)
-            
-    print("❌ Failed to reach Ollama server after starting.")
-    exit(1)
+
+    print("❌ Failed to start Ollama server.")
+    sys.exit(1)
+
+def ensure_model_installed(model_name):
+    """Verifies model exists locally; downloads it dynamically if missing."""
+    print(f"🔍 Checking if model '{model_name}' is downloaded...")
+    try:
+        res = subprocess.run(["ollama", "list"], capture_output=True, text=True, check=True)
+        if model_name not in res.stdout:
+            print(f"📥 Model '{model_name}' not found locally. Pulling model now (please wait)...")
+            subprocess.run(["ollama", "pull", model_name], check=True)
+            print(f"✅ Model '{model_name}' successfully downloaded!")
+        else:
+            print(f"✅ Model '{model_name}' is ready.")
+    except Exception as e:
+        print(f"⚠️ Warning during model check: {e}")
 
 def select_model():
     print("\nSelect Ollama Model:")
     print("1. qwen2.5:7b")
     print("2. llama3.2:3b")
     print("3. deepseek-r1:7b")
-    
+
     choice = input("Enter choice (1-3) [default: 1]: ").strip()
     models = {"1": "qwen2.5:7b", "2": "llama3.2:3b", "3": "deepseek-r1:7b"}
-    return models.get(choice, "qwen2.5:7b")
+    selected = models.get(choice, "qwen2.5:7b")
+
+    ensure_model_installed(selected)
+    return selected
 
 def main():
     ensure_ollama_running()
