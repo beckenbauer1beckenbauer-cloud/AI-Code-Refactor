@@ -1,24 +1,28 @@
 #!/bin/bash
-echo "🚀 Installing Ollama Engine..."
+echo "🚀 Initializing System Dependencies & Ollama..."
 
-# 1. Install missing extraction dependencies
+# 1. Install required extraction tools
 apt-get update -qq && apt-get install -y zstd -qq
 
-# 2. Install Ollama engine binary
+# 2. Kill any stale Ollama processes running in corrupted directories
+pkill -f "ollama serve" || true
+pkill -f "llama-server" || true
+
+# 3. Install Ollama if not present
 if ! command -v ollama &> /dev/null; then
-    echo "📦 Downloading and installing Ollama system binary..."
+    echo "📦 Installing Ollama binary..."
     curl -fsSL https://ollama.com/install.sh | sh
 fi
 
-# 3. Start background server from stable directory
-echo "🔄 Starting Ollama background daemon..."
-cd /content || cd /tmp
-ollama serve > /dev/null 2>&1 &
+# 4. Start Ollama explicitly anchored at System Root (/)
+echo "🔄 Starting Ollama background server anchored at system root..."
+cd /
+nohup ollama serve > /tmp/ollama.log 2>&1 &
 
-# 4. Wait for engine health check
-echo "⏳ Waiting for Ollama engine to initialize..."
+# 5. Wait for server health response
+echo "⏳ Waiting for Ollama engine..."
 until curl -s http://127.0.0.1:11434/api/version > /dev/null; do
     sleep 2
 done
 
-echo "✅ Ollama Engine is running and ready!"
+echo "✅ Ollama system daemon is active!"
